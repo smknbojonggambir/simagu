@@ -1,0 +1,11 @@
+{
+  "name": "SIMAGU - Sistem Informasi Agenda Guru & Kelas",
+  "description": "Sistem Informasi Agenda Harian Guru dan Agenda Kelas SMK - Integrasi Absensi, Supervisi, Monitoring, Disiplin, Prestasi, dan Google Apps Script Export.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
