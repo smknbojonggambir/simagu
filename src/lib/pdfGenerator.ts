@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { AgendaGuruItem, AgendaKelasItem, SchoolSetting, SupervisiRecord, NilaiSiswaRecord, RekapAbsensiBulananSiswaItem, AbsensiGuruRecord } from '../types';
 
-const OFFICIAL_LOGO_URL = 'https://raw.githubusercontent.com/smknbojonggambir/simagu/main/logo.png';
+const OFFICIAL_LOGO_URL = 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEj2nISiQj-jbkcHI8rbm3kuat8yeHZk6x1jGcC3ryzyWhwR7J2pjIBdD0tdYrpx44IyIbPmSJJXJ6Lnk0VbKrRdSv05J_nF59t1YaiukpoYj3fgyLhK0ID7azgeAoXVBozIWC5weYmGyaK_xDLh8j2p1GsTrL3qhzEi-PyMt6-Jok8SqAuSU16LeIFFw_c/s320/LOGO%20.png';
 
 async function getLogoImage(url: string): Promise<string | null> {
   const logoUrlToUse = url || OFFICIAL_LOGO_URL;
@@ -451,8 +451,7 @@ export async function generateAgendaKelasPDF(agenda: AgendaKelasItem, setting: S
   yPos += 4.5;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  const konsentrasiText = agenda.konsentrasiKeahlian || agenda.jurusan || '-';
-  doc.text(`Hari / Tanggal: ${agenda.hari || '-'}, ${agenda.tanggal} | Konsentrasi Keahlian: ${konsentrasiText} | Wali Kelas: ${agenda.waliKelas}`, pageWidth / 2, yPos, { align: 'center' });
+  doc.text(`Tanggal: ${agenda.hari}, ${agenda.tanggal} | Wali Kelas: ${agenda.waliKelas}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 7;
 
   autoTable(doc, {
@@ -812,33 +811,46 @@ export async function generateRekapNilaiSiswaPDF(
     theme: 'grid',
     styles: { fontSize: 7.5, cellPadding: 2, lineColor: [200, 200, 200] },
     headStyles: { fillColor: [15, 118, 110], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
-    head: [['NO', 'TANGGAL & HARI', 'NAMA SISWA / NIS', 'KELAS', 'MATA PELAJARAN', 'GURU / PENGAJAR', 'JENIS ASESMEN', 'N. FORMATIF', 'N. PRAKTIK', 'N. AKHIR', 'STATUS']],
+    head: [[
+      'NO', 'HARI', 'TANGGAL', 'NIS', 'NAMA SISWA', 'KELAS', 'MAPEL',
+      'GURU', 'ASESMEN', 'MATERI', 'FORMATIF', 'PRAKTIK', 'AKHIR', 'PRED', 'STATUS', 'CATATAN'
+    ]],
     body: nilaiList.map((n, idx) => [
       idx + 1,
-      `${n.tanggal}\n(${n.hari || '-'})`,
-      `${n.namaSiswa}\nNIS: ${n.nis || '-'}`,
+      n.hari || '-',
+      n.tanggal || '-',
+      n.nis || '-',
+      n.namaSiswa,
       n.kelas,
       n.mapel,
       n.guru,
       n.jenisAsesmen,
+      n.materiJudul || '-',
       n.nilaiFormatif,
       n.nilaiPraktik,
       n.nilaiAkhir,
-      n.statusKelulusan
+      n.predikat || (n.nilaiAkhir >= 90 ? 'A' : n.nilaiAkhir >= 80 ? 'B' : n.nilaiAkhir >= 70 ? 'C' : 'D'),
+      n.statusKelulusan,
+      n.catatanGuru || '-'
     ]),
-    margin: { left: 14, right: 14 },
+    margin: { left: 10, right: 10 },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 24, halign: 'center' },
-      2: { cellWidth: 42 },
-      3: { cellWidth: 20, halign: 'center' },
-      4: { cellWidth: 38 },
-      5: { cellWidth: 38 },
-      6: { cellWidth: 32 },
-      7: { cellWidth: 18, halign: 'center' },
-      8: { cellWidth: 18, halign: 'center' },
-      9: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
-      10: { cellWidth: 22, halign: 'center', fontStyle: 'bold' }
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 14, halign: 'center' },
+      2: { cellWidth: 18, halign: 'center' },
+      3: { cellWidth: 14, halign: 'center' },
+      4: { cellWidth: 32 },
+      5: { cellWidth: 16, halign: 'center' },
+      6: { cellWidth: 26 },
+      7: { cellWidth: 26 },
+      8: { cellWidth: 22 },
+      9: { cellWidth: 22 },
+      10: { cellWidth: 14, halign: 'center' },
+      11: { cellWidth: 14, halign: 'center' },
+      12: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
+      13: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
+      14: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+      15: { cellWidth: 25 }
     }
   });
 
