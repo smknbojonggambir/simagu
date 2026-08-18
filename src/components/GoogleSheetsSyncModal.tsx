@@ -31,17 +31,9 @@ export const GoogleSheetsSyncModal: React.FC<GoogleSheetsSyncModalProps> = ({
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [manualToken, setManualToken] = useState<string>('');
   const [webAppUrl, setWebAppUrl] = useState<string>(
-    setting?.appsScriptUrl || 'https://script.google.com/macros/s/AKfycbwdP4xyVpfseBeDt2TrzyrNUQYhOuxX2638CDPs0XcisGGZNga0Ix4PgxGhSPv4aCj9/exec'
+    () => setting?.appsScriptUrl || localStorage.getItem('simagu_sheets_script_url') || 'https://script.google.com/macros/s/AKfycbw4dY5rE7Rcb_53302ZXUUW_3_QnWcyTr86QKNGhMvLD-kBAnNjNdCLmgCkwJXqCUwC/exec'
   );
-
-  useEffect(() => {
-    if (setting?.appsScriptUrl) {
-      setWebAppUrl(setting.appsScriptUrl);
-    } else {
-      setWebAppUrl('https://script.google.com/macros/s/AKfycbwdP4xyVpfseBeDt2TrzyrNUQYhOuxX2638CDPs0XcisGGZNga0Ix4PgxGhSPv4aCj9/exec');
-    }
-  }, [setting?.appsScriptUrl, isOpen]);
-  const [syncMethod, setSyncMethod] = useState<'oauth' | 'manualToken' | 'webApp'>('webApp');
+  const [syncMethod, setSyncMethod] = useState<'oauth' | 'manualToken' | 'webApp'>('oauth');
 
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
