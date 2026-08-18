@@ -29,8 +29,7 @@ import {
   Info,
   FolderTree,
   Folder,
-  ExternalLink,
-  RefreshCw
+  ExternalLink
 } from 'lucide-react';
 import { SchoolSetting, AuditLogItem, User, UserRole } from '../../types';
 import { Storage, DriveFolderStructure } from '../../lib/storage';
@@ -43,7 +42,6 @@ interface PengaturanViewProps {
   currentUser?: User;
   onOpenAppsScriptModal: () => void;
   onRefresh: () => void;
-  onOpenGoogleSheetsModal?: () => void;
 }
 
 export const PengaturanView: React.FC<PengaturanViewProps> = ({
@@ -51,15 +49,13 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
   auditLogs = [],
   currentUser,
   onOpenAppsScriptModal,
-  onRefresh,
-  onOpenGoogleSheetsModal
+  onRefresh
 }) => {
   const [activeTab, setActiveTab] = useState<'audit' | 'identitas' | 'users' | 'backup'>('audit');
   
   // Settings Form State
   const [formSetting, setFormSetting] = useState<SchoolSetting>(setting);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [isSettingSubmitting, setIsSettingSubmitting] = useState(false);
 
   // AutoSave Configuration State
   const [autoSaveConfig, setAutoSaveConfig] = useState<AutoSaveConfig>(() => AutoSaveManager.getConfig());
@@ -137,22 +133,17 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
   const activeAdminRole = currentUser?.role || 'Administrator';
 
   // --- HANDLERS: Settings Form ---
-  const handleSaveSetting = async (e: React.FormEvent) => {
+  const handleSaveSetting = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSettingSubmitting(true);
-    try {
-      Storage.saveSetting(formSetting);
-      
-      // Log detailed audit entry with active administrator info
-      const changeSummary = `Memperbarui konfigurasi identitas sekolah & Kop Surat oleh ${activeAdminName} (${activeAdminRole}). NPSN: ${formSetting.npsn}, Kurikulum: ${formSetting.wakasekKurikulum || '-'}, Kesiswaan: ${setting.wakasekKurikulum || '-'}`;
-      Storage.logAudit('UPDATE_SETTING', changeSummary, { nama: activeAdminName, role: activeAdminRole });
-      
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2500);
-      onRefresh();
-    } finally {
-      setIsSettingSubmitting(false);
-    }
+    Storage.saveSetting(formSetting);
+    
+    // Log detailed audit entry with active administrator info
+    const changeSummary = `Memperbarui konfigurasi identitas sekolah & Kop Surat oleh ${activeAdminName} (${activeAdminRole}). NPSN: ${formSetting.npsn}, Kurikulum: ${formSetting.wakasekKurikulum || '-'}, Kesiswaan: ${setting.wakasekKurikulum || '-'}`;
+    Storage.logAudit('UPDATE_SETTING', changeSummary, { nama: activeAdminName, role: activeAdminRole });
+    
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2500);
+    onRefresh();
   };
 
   // --- HANDLERS: Audit Logs ---
@@ -791,73 +782,29 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
                 <label className="block mb-1 font-bold text-slate-700 dark:text-slate-300">Kota / Kabupaten</label>
                 <input
                   type="text"
-                  value={formSetting.kota}
+                  value={formSetting.kota || ''}
                   onChange={(e) => setFormSetting({ ...formSetting, kota: e.target.value })}
                   className="w-full rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-slate-50 dark:bg-slate-800"
                 />
               </div>
             </div>
 
-            {/* Logo Preview, Upload File & URL */}
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
-              <label className="block font-bold text-slate-700 dark:text-slate-300">Logo Sekolah (Kop Surat PDF & Cetak Dokumen)</label>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            {/* Logo Preview & URL */}
+            <div>
+              <label className="block mb-1 font-bold text-slate-700 dark:text-slate-300">URL Logo Sekolah (Logo Kop Surat)</label>
+              <div className="flex items-center gap-3">
                 {formSetting.logoUrl && (
-                  <div className="h-16 w-16 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1.5 overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
-                    <img src={formSetting.logoUrl} alt="Logo Sekolah" className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" />
+                  <div className="h-12 w-12 rounded-xl bg-slate-100 dark:bg-slate-800 border p-1 overflow-hidden shrink-0 shadow-sm">
+                    <img src={formSetting.logoUrl} alt="Logo Sekolah" className="h-full w-full object-contain" referrerPolicy="no-referrer" />
                   </div>
                 )}
-                
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-sm cursor-pointer transition">
-                      <Upload className="h-3.5 w-3.5" />
-                      <span>Unggah File Logo (PNG/JPG)</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            if (file.size > 2 * 1024 * 1024) {
-                              alert('Ukuran file logo terlalu besar. Harap gunakan gambar di bawah 2MB.');
-                              return;
-                            }
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              if (reader.result) {
-                                setFormSetting({ ...formSetting, logoUrl: reader.result as string });
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-
-                    <button
-                      type="button"
-                      onClick={() => setFormSetting({ 
-                        ...formSetting, 
-                        logoUrl: 'https://raw.githubusercontent.com/smknbojonggambir/simagu/main/logo.png' 
-                      })}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition"
-                      title="Reset ke Logo Default SMKN Bojonggambir"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span>Reset Logo Default</span>
-                    </button>
-                  </div>
-
-                  <input
-                    type="text"
-                    value={formSetting.logoUrl}
-                    onChange={(e) => setFormSetting({ ...formSetting, logoUrl: e.target.value })}
-                    placeholder="Atau masukkan URL logo (https://...)"
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-white dark:bg-slate-900 font-mono text-[11px]"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={formSetting.logoUrl}
+                  onChange={(e) => setFormSetting({ ...formSetting, logoUrl: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-slate-50 dark:bg-slate-800 font-mono"
+                />
               </div>
             </div>
 
@@ -929,6 +876,37 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
               </div>
             </div>
 
+            {/* Google Sheets & Apps Script Web App Endpoint URL */}
+            <div className="grid grid-cols-1 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <label className="block mb-1 font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>URL Web App Google Apps Script (/exec)</span>
+                  <span className="text-[10px] text-teal-600 font-semibold">Backend Sinkronisasi Otomatis</span>
+                </label>
+                <input
+                  type="text"
+                  value={formSetting.appsScriptUrl || ''}
+                  onChange={(e) => setFormSetting({ ...formSetting, appsScriptUrl: e.target.value })}
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-slate-50 dark:bg-slate-800 font-mono text-xs text-teal-700 dark:text-teal-300 font-bold focus:ring-2 focus:ring-teal-500"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  URL ini digunakan oleh modul <b>Input Nilai</b>, <b>Agenda Guru</b>, dan <b>Supervisi</b> untuk menyimpan dan menyingkronkan data otomatis langsung ke Google Spreadsheet.
+                </p>
+              </div>
+
+              <div>
+                <label className="block mb-1 font-bold text-slate-700 dark:text-slate-300">URL Google Spreadsheet Sekolah</label>
+                <input
+                  type="text"
+                  value={formSetting.googleSheetUrl || ''}
+                  onChange={(e) => setFormSetting({ ...formSetting, googleSheetUrl: e.target.value })}
+                  placeholder="https://docs.google.com/spreadsheets/d/.../edit"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 p-2.5 bg-slate-50 dark:bg-slate-800 font-mono text-xs"
+                />
+              </div>
+            </div>
+
             {/* Submit & Status */}
             <div className="pt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
               {saveSuccess ? (
@@ -943,20 +921,10 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
 
               <button
                 type="submit"
-                disabled={isSettingSubmitting}
-                className="flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white px-6 py-2.5 text-xs font-bold shadow-lg shadow-teal-950/20 transition active:scale-98 disabled:opacity-60 cursor-pointer"
+                className="flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white px-6 py-2.5 text-xs font-bold shadow-lg shadow-teal-950/20 transition active:scale-98"
               >
-                {isSettingSubmitting ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span>Menyimpan...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    <span>Simpan Pengaturan</span>
-                  </>
-                )}
+                <Save className="h-4 w-4" />
+                <span>Simpan Pengaturan</span>
               </button>
             </div>
           </form>
@@ -1235,31 +1203,6 @@ export const PengaturanView: React.FC<PengaturanViewProps> = ({
               <span>Pilih File Backup (.json)</span>
               <input type="file" accept=".json" onChange={handleRestoreFile} className="hidden" />
             </label>
-          </div>
-
-          {/* Google Sheets Live Sync Card */}
-          <div className="md:col-span-2 p-6 rounded-2xl border border-emerald-300 dark:border-emerald-800 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 dark:from-slate-900 dark:to-slate-900 space-y-4 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-emerald-600 text-white shadow-xs">
-                  <FileSpreadsheet className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Sinkronisasi & Kirim Data ke Google Sheets</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Kirim dan perbarui seluruh 16 tab data SIMAGU (Agenda, Siswa, Guru, Supervisi, Nilai, dll) langsung ke Google Spreadsheet tujuan.</p>
-                </div>
-              </div>
-
-              {onOpenGoogleSheetsModal && (
-                <button
-                  onClick={onOpenGoogleSheetsModal}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-xs font-bold shadow-md transition shrink-0"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  <span>Kirim Data ke Google Sheet</span>
-                </button>
-              )}
-            </div>
           </div>
 
           {/* Google Apps Script Integration */}
