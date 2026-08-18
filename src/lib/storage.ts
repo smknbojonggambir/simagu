@@ -1,4 +1,3 @@
-import { toast } from 'sonner';
 import {
   SchoolSetting,
   GuruItem,
@@ -108,17 +107,24 @@ const KEYS = {
 
 // Production clean slate migration check for specified modules
 const PROD_CLEAN_KEY = 'simagu_prod_clean_records_v3';
-if (typeof window !== 'undefined' && localStorage.getItem(PROD_CLEAN_KEY) !== 'true') {
-  localStorage.setItem(KEYS.AGENDA_GURU, JSON.stringify([]));
-  localStorage.setItem(KEYS.AGENDA_KELAS, JSON.stringify([]));
-  localStorage.setItem(KEYS.SUPERVISI, JSON.stringify([]));
-  localStorage.setItem(KEYS.MATERI, JSON.stringify([]));
-  localStorage.setItem(KEYS.TUGAS, JSON.stringify([]));
-  localStorage.setItem(PROD_CLEAN_KEY, 'true');
+if (typeof window !== 'undefined') {
+  try {
+    if (localStorage.getItem(PROD_CLEAN_KEY) !== 'true') {
+      localStorage.setItem(KEYS.AGENDA_GURU, JSON.stringify([]));
+      localStorage.setItem(KEYS.AGENDA_KELAS, JSON.stringify([]));
+      localStorage.setItem(KEYS.SUPERVISI, JSON.stringify([]));
+      localStorage.setItem(KEYS.MATERI, JSON.stringify([]));
+      localStorage.setItem(KEYS.TUGAS, JSON.stringify([]));
+      localStorage.setItem(PROD_CLEAN_KEY, 'true');
+    }
+  } catch (err) {
+    console.warn('Storage initialization skipped due to environment constraints:', err);
+  }
 }
 
 function getItem<T>(key: string, fallback: T): T {
   try {
+    if (typeof window === 'undefined' || !window.localStorage) return fallback;
     const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : fallback;
   } catch (err) {
@@ -129,63 +135,34 @@ function getItem<T>(key: string, fallback: T): T {
 
 function setItem<T>(key: string, data: T): void {
   try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
     localStorage.setItem(key, JSON.stringify(data));
-    if (typeof window !== 'undefined' && key.startsWith('simagu_') && key !== KEYS.AUDIT_LOGS && key !== KEYS.NOTIFICATIONS) {
-      window.dispatchEvent(new CustomEvent('simagu_data_changed', { detail: { key } }));
-    }
-  } catch (err: any) {
+  } catch (err) {
     console.error(`Error saving key ${key}:`, err);
-    // If quota exceeded, attempt fallback saving with lighter payload or warn user
-    if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
-      try {
-        // Fallback: strip heavy base64 fotoUrls if array data
-        if (Array.isArray(data)) {
-          const stripped = data.map((item: any) => {
-            if (item && typeof item === 'object') {
-              return {
-                ...item,
-                fotoUrls: Array.isArray(item.fotoUrls) ? item.fotoUrls.slice(0, 1) : []
-              };
-            }
-            return item;
-          });
-          localStorage.setItem(key, JSON.stringify(stripped));
-          if (typeof window !== 'undefined' && key.startsWith('simagu_')) {
-            window.dispatchEvent(new CustomEvent('simagu_data_changed', { detail: { key } }));
-          }
-          return;
-        }
-      } catch (fallbackErr) {
-        console.error('Fallback save also failed:', fallbackErr);
-      }
-      alert('Penyimpanan lokal browser hampir penuh. Harap kurangi jumlah foto yang diunggah agar data tersimpan dengan lancar.');
-    }
   }
 }
 
 export const Storage = {
   // Settings
   getSetting: (): SchoolSetting => {
-    const saved = getItem<SchoolSetting | null>(KEYS.SETTING, null);
-    if (!saved) {
-      setItem(KEYS.SETTING, initialSchoolSetting);
-      return initialSchoolSetting;
+    const saved = getItem(KEYS.SETTING, initialSchoolSetting);
+    if (!saved || saved.npsn !== '69989796' || saved.namaSekolah !== 'SMK NEGERI BOJONGGAMBIR' || saved.logoUrl !== initialSchoolSetting.logoUrl || saved.tahunPelajaran === '2025/2026' || !saved.googleSheetUrl || saved.googleSheetUrl.includes('1SIMAGU')) {
+      const updated = { ...initialSchoolSetting, ...saved, tahunPelajaran: '2026/2027', googleSheetUrl: 'https://docs.google.com/spreadsheets/d/1BTYSMyezYCtgUyuNA8MOpoCsf989f88ymbBV9CZihOs/edit', logoUrl: initialSchoolSetting.logoUrl };
+      setItem(KEYS.SETTING, updated);
+      return updated;
     }
-    const merged = { ...initialSchoolSetting, ...saved };
-    if (!merged.logoUrl || merged.logoUrl.includes('blogger.googleusercontent.com')) {
-      merged.logoUrl = initialSchoolSetting.logoUrl;
-      setItem(KEYS.SETTING, merged);
-    }
-    return merged;
+    return saved;
   },
   saveSetting: (setting: SchoolSetting) => setItem(KEYS.SETTING, setting),
 
   // Users & Auth
   getUsers: (): User[] => {
-    const saved = getItem<User[] | null>(KEYS.USERS, null);
-    if (!saved || saved.length === 0) {
-      setItem(KEYS.USERS, initialUsers);
-      return initialUsers;
+    const saved = getItem(KEYS.USERS, initialUsers);
+    const removedUsernames = ['suhandi', 'rangga_putra', 'zamzam_zenal', 'resa_yulianti', 'endah_nursolihah', 'zahra_rachmat', 'acep_asphia', 'hendri', 'rizki_akbar'];
+    if (!saved || saved.some(u => removedUsernames.includes(u.username))) {
+      const filtered = (saved || initialUsers).filter(u => !removedUsernames.includes(u.username));
+      setItem(KEYS.USERS, filtered.length > 0 ? filtered : initialUsers);
+      return filtered.length > 0 ? filtered : initialUsers;
     }
     return saved;
   },
@@ -201,18 +178,30 @@ export const Storage = {
 
   // Master Data
   getGuru: (): GuruItem[] => {
-    const saved = getItem<GuruItem[] | null>(KEYS.GURU, null);
-    if (!saved || saved.length === 0) {
-      setItem(KEYS.GURU, initialGuru);
-      return initialGuru;
+    const saved = getItem(KEYS.GURU, initialGuru);
+    const removedNames = [
+      'Suhandi, S.Pd.I.',
+      'Rangga Putra Riyadi, S.Pd.',
+      'Zamzam Zenal Arifin, S.M.',
+      'Resa Yulianti, S.Sos.',
+      'Endah Nur Solihah, S.Pd.',
+      'Zahra Rachmat Fauzi',
+      'Acep Asphia',
+      'Hendri',
+      'Rizki Akbar Nur Arifin'
+    ];
+    if (!saved || saved.some(g => removedNames.some(rn => g.nama?.includes(rn.split(',')[0])))) {
+      const cleaned = (saved || initialGuru).filter(g => !removedNames.some(rn => g.nama?.includes(rn.split(',')[0])));
+      setItem(KEYS.GURU, cleaned.length > 0 ? cleaned : initialGuru);
+      return cleaned.length > 0 ? cleaned : initialGuru;
     }
     return saved;
   },
   saveGuru: (data: GuruItem[]) => setItem(KEYS.GURU, data),
 
   getSiswa: (): SiswaItem[] => {
-    const saved = getItem<SiswaItem[] | null>(KEYS.SISWA, null);
-    if (!saved || saved.length === 0) {
+    const saved = getItem(KEYS.SISWA, initialSiswa);
+    if (!saved || saved.length < 200 || saved[0]?.nama !== 'Aip Paeja') {
       setItem(KEYS.SISWA, initialSiswa);
       return initialSiswa;
     }
@@ -221,8 +210,8 @@ export const Storage = {
   saveSiswa: (data: SiswaItem[]) => setItem(KEYS.SISWA, data),
 
   getKelas: (): KelasItem[] => {
-    const saved = getItem<KelasItem[] | null>(KEYS.KELAS, null);
-    if (!saved || saved.length === 0) {
+    const saved = getItem(KEYS.KELAS, initialKelas);
+    if (!saved || saved.length < 10 || saved[0]?.ruang === 'Studio DKV 1') {
       setItem(KEYS.KELAS, initialKelas);
       return initialKelas;
     }
@@ -231,8 +220,8 @@ export const Storage = {
   saveKelas: (data: KelasItem[]) => setItem(KEYS.KELAS, data),
 
   getJurusan: (): JurusanItem[] => {
-    const saved = getItem<JurusanItem[] | null>(KEYS.JURUSAN, null);
-    if (!saved || saved.length === 0) {
+    const saved = getItem(KEYS.JURUSAN, initialJurusan);
+    if (!saved || saved.length < 2) {
       setItem(KEYS.JURUSAN, initialJurusan);
       return initialJurusan;
     }
@@ -241,8 +230,8 @@ export const Storage = {
   saveJurusan: (data: JurusanItem[]) => setItem(KEYS.JURUSAN, data),
 
   getMapel: (): MapelItem[] => {
-    const saved = getItem<MapelItem[] | null>(KEYS.MAPEL, null);
-    if (!saved || saved.length === 0) {
+    const saved = getItem(KEYS.MAPEL, initialMapel);
+    if (!saved || saved.length < 18) {
       setItem(KEYS.MAPEL, initialMapel);
       return initialMapel;
     }
@@ -251,158 +240,75 @@ export const Storage = {
   saveMapel: (data: MapelItem[]) => setItem(KEYS.MAPEL, data),
 
   getJadwal: (): JadwalItem[] => {
-    const saved = getItem<JadwalItem[] | null>(KEYS.JADWAL, null);
-    if (!saved || saved.length === 0) {
+    const saved = getItem<JadwalItem[]>(KEYS.JADWAL, initialJadwal);
+    if (!saved || !Array.isArray(saved) || saved.length === 0) {
       setItem(KEYS.JADWAL, initialJadwal);
       return initialJadwal;
     }
     return saved;
   },
   saveJadwal: (data: JadwalItem[]) => setItem(KEYS.JADWAL, data),
+  addJadwal: (item: JadwalItem) => {
+    const list = Storage.getJadwal();
+    list.unshift(item);
+    Storage.saveJadwal(list);
+    Storage.logAudit('CREATE_JADWAL', `Menambahkan jadwal pelajaran ${item.mapel} (${item.kelas} - ${item.hari} JP ${item.jp})`);
+  },
+  updateJadwal: (id: string, updated: Partial<JadwalItem>) => {
+    const list = Storage.getJadwal();
+    const index = list.findIndex(j => j.id === id);
+    if (index !== -1) {
+      list[index] = { ...list[index], ...updated };
+      Storage.saveJadwal(list);
+      Storage.logAudit('UPDATE_JADWAL', `Memperbarui jadwal pelajaran ${list[index].mapel} (${list[index].kelas} - ${list[index].hari} JP ${list[index].jp})`);
+    }
+  },
+  deleteJadwal: (id: string) => {
+    const list = Storage.getJadwal();
+    const item = list.find(j => j.id === id);
+    const filtered = list.filter(j => j.id !== id);
+    Storage.saveJadwal(filtered);
+    if (item) {
+      Storage.logAudit('DELETE_JADWAL', `Menghapus jadwal pelajaran ${item.mapel} (${item.kelas} - ${item.hari} JP ${item.jp})`);
+    }
+  },
 
   // Agendas
   getAgendaGuru: (): AgendaGuruItem[] => {
-    const list = getItem<AgendaGuruItem[] | null>(KEYS.AGENDA_GURU, null);
-    if (!list || (Array.isArray(list) && list.length === 0)) {
-      setItem(KEYS.AGENDA_GURU, initialAgendaGuru);
-      return initialAgendaGuru;
-    }
-    const currentList = Array.isArray(list) ? list : initialAgendaGuru;
-    let modified = false;
-    const result = currentList.map(item => {
-      if (item.hari === 'Senin' && item.tanggal === '2026-08-03') {
-        modified = true;
-        return {
-          ...item,
-          tanggal: '2026-08-10',
-          statusPembelajaran: 'Selesai' as const,
-          statusValidasi: 'Disetujui' as const,
-          hadir: item.totalSiswa,
-          sakit: 0,
-          izin: 0,
-          alpa: 0,
-          terlambat: 0,
-          persentaseKehadiran: 100,
-          siswaTidakHadir: []
-        };
-      }
-      return item;
-    });
-
-    initialAgendaGuru.forEach(initItem => {
-      if (!result.some(r => r.id === initItem.id || (r.kelas === initItem.kelas && r.mapel === initItem.mapel && r.jamKe === initItem.jamKe && (r.tanggal === '2026-08-10' || r.hari === 'Senin')))) {
-        result.push(initItem);
-        modified = true;
-      }
-    });
-
-    if (modified) {
-      setItem(KEYS.AGENDA_GURU, result);
-    }
-    return result;
+    return getItem(KEYS.AGENDA_GURU, initialAgendaGuru);
   },
   saveAgendaGuru: (data: AgendaGuruItem[]) => setItem(KEYS.AGENDA_GURU, data),
   addAgendaGuru: (item: AgendaGuruItem) => {
     const list = Storage.getAgendaGuru();
-    const safeList = Array.isArray(list) ? [...list] : [];
-    safeList.unshift(item);
-    Storage.saveAgendaGuru(safeList);
-
-    // Toast confirmation
-    toast.success('Agenda Guru Berhasil Disimpan! ✨', {
-      description: `Kelas: ${item.kelas} • Mapel: ${item.mapel}`,
-    });
+    list.unshift(item);
+    Storage.saveAgendaGuru(list);
 
     // Auto notification if any student marked Alpa
-    if (item.alpa > 0 && Array.isArray(item.siswaTidakHadir) && item.siswaTidakHadir.length > 0) {
-      const alpaStudents = item.siswaTidakHadir.filter(s => s && s.kategori === 'Alpa').map(s => s.nama).join(', ');
-      if (alpaStudents) {
-        Storage.addNotification({
-          id: 'notif-' + Date.now(),
-          title: `Peringatan Alpa: ${item.kelas}`,
-          message: `Terdapat ${item.alpa} siswa Alpa pada jam pelajaran ${item.namaGuru}: ${alpaStudents}. Mohon Wali Kelas menindaklanjuti.`,
-          type: 'alert',
-          timestamp: new Date().toLocaleString('id-ID'),
-          read: false,
-          targetRole: 'Wali Kelas'
-        });
-      }
+    if (item.alpa > 0) {
+      const alpaStudents = item.siswaTidakHadir.filter(s => s.kategori === 'Alpa').map(s => s.nama).join(', ');
+      Storage.addNotification({
+        id: 'notif-' + Date.now(),
+        title: `Peringatan Alpa: ${item.kelas}`,
+        message: `Terdapat ${item.alpa} siswa Alpa pada jam pelajaran ${item.namaGuru}: ${alpaStudents}. Mohon Wali Kelas menindaklanjuti.`,
+        type: 'alert',
+        timestamp: new Date().toLocaleString('id-ID'),
+        read: false,
+        targetRole: 'Wali Kelas'
+      });
     }
 
     Storage.logAudit('CREATE_AGENDA_GURU', `Membuat Agenda Guru #${item.nomorAgenda} untuk kelas ${item.kelas}`);
   },
-  updateAgendaGuru: (item: AgendaGuruItem) => {
-    const list = Storage.getAgendaGuru().map(a => a.id === item.id ? item : a);
-    Storage.saveAgendaGuru(list);
-    toast.success('Agenda Guru Berhasil Diperbarui! 📝', {
-      description: `Agenda #${item.nomorAgenda} (${item.kelas})`
-    });
-    Storage.logAudit('UPDATE_AGENDA_GURU', `Mengubah Agenda Guru #${item.nomorAgenda} - ${item.kelas}`);
-  },
-  deleteAgendaGuru: (id: string) => {
-    const list = Storage.getAgendaGuru().filter(a => a.id !== id);
-    Storage.saveAgendaGuru(list);
-    toast.info('Agenda Guru Berhasil Dihapus 🗑️');
-    Storage.logAudit('DELETE_AGENDA_GURU', `Menghapus Agenda Guru ID: ${id}`);
-  },
 
   getAgendaKelas: (): AgendaKelasItem[] => {
-    const list = getItem<AgendaKelasItem[] | null>(KEYS.AGENDA_KELAS, null);
-    if (!list || (Array.isArray(list) && list.length === 0)) {
-      setItem(KEYS.AGENDA_KELAS, initialAgendaKelas);
-      return initialAgendaKelas;
-    }
-    const currentList = Array.isArray(list) ? list : initialAgendaKelas;
-    let modified = false;
-    const result = currentList.map(item => {
-      if (item.hari === 'Senin' && item.tanggal === '2026-08-03') {
-        modified = true;
-        return {
-          ...item,
-          tanggal: '2026-08-10',
-          hadir: item.jumlahSiswa,
-          sakit: 0,
-          izin: 0,
-          alpa: 0,
-          persentase: 100
-        };
-      }
-      return item;
-    });
-
-    initialAgendaKelas.forEach(initItem => {
-      if (!result.some(r => r.id === initItem.id || (r.kelas === initItem.kelas && r.tanggal === '2026-08-10'))) {
-        result.push(initItem);
-        modified = true;
-      }
-    });
-
-    if (modified) {
-      setItem(KEYS.AGENDA_KELAS, result);
-    }
-    return result;
+    return getItem(KEYS.AGENDA_KELAS, initialAgendaKelas);
   },
   saveAgendaKelas: (data: AgendaKelasItem[]) => setItem(KEYS.AGENDA_KELAS, data),
   addAgendaKelas: (item: AgendaKelasItem) => {
     const list = Storage.getAgendaKelas();
     list.unshift(item);
     Storage.saveAgendaKelas(list);
-    toast.success('Agenda Kelas Berhasil Disimpan! ✨', {
-      description: `Kelas: ${item.kelas} • Agenda #${item.nomorAgenda}`
-    });
     Storage.logAudit('CREATE_AGENDA_KELAS', `Membuat Agenda Kelas #${item.nomorAgenda} - ${item.kelas}`);
-  },
-  updateAgendaKelas: (item: AgendaKelasItem) => {
-    const list = Storage.getAgendaKelas().map(a => a.id === item.id ? item : a);
-    Storage.saveAgendaKelas(list);
-    toast.success('Agenda Kelas Berhasil Diperbarui! 📝');
-    Storage.logAudit('UPDATE_AGENDA_KELAS', `Mengubah Agenda Kelas #${item.nomorAgenda} - ${item.kelas}`);
-  },
-  deleteAgendaKelas: (id: string) => {
-    const list = Storage.getAgendaKelas().filter(a => a.id !== id);
-    Storage.saveAgendaKelas(list);
-    toast.info('Agenda Kelas Berhasil Dihapus 🗑️');
-    Storage.logAudit('DELETE_AGENDA_KELAS', `Menghapus Agenda Kelas ID: ${id}`);
   },
 
   // Absensi
@@ -431,19 +337,16 @@ export const Storage = {
     const list = Storage.getMateri();
     list.unshift(item);
     Storage.saveMateri(list);
-    toast.success('Materi Pembelajaran Disimpan! 📚', { description: item.judulMateri });
     Storage.logAudit('CREATE_MATERI', `Membuat Materi: ${item.judulMateri} (${item.kelas})`);
   },
   updateMateri: (item: MateriRecord) => {
     const list = Storage.getMateri().map(m => m.id === item.id ? item : m);
     Storage.saveMateri(list);
-    toast.success('Materi Pembelajaran Diperbarui! 📝');
     Storage.logAudit('UPDATE_MATERI', `Mengubah Materi: ${item.judulMateri}`);
   },
   deleteMateri: (id: string) => {
     const list = Storage.getMateri().filter(m => m.id !== id);
     Storage.saveMateri(list);
-    toast.info('Materi Pembelajaran Dihapus 🗑️');
     Storage.logAudit('DELETE_MATERI', `Menghapus Materi ID: ${id}`);
   },
 
@@ -455,19 +358,16 @@ export const Storage = {
     const list = Storage.getTugas();
     list.unshift(item);
     Storage.saveTugas(list);
-    toast.success('Tugas/PR Berhasil Disimpan! 📌', { description: item.judulTugas });
     Storage.logAudit('CREATE_TUGAS', `Membuat Tugas: ${item.judulTugas} (${item.kelas})`);
   },
   updateTugas: (item: TugasRecord) => {
     const list = Storage.getTugas().map(t => t.id === item.id ? item : t);
     Storage.saveTugas(list);
-    toast.success('Tugas/PR Berhasil Diperbarui! 📝');
     Storage.logAudit('UPDATE_TUGAS', `Mengubah Tugas: ${item.judulTugas}`);
   },
   deleteTugas: (id: string) => {
     const list = Storage.getTugas().filter(t => t.id !== id);
     Storage.saveTugas(list);
-    toast.info('Tugas/PR Dihapus 🗑️');
     Storage.logAudit('DELETE_TUGAS', `Menghapus Tugas ID: ${id}`);
   },
 
@@ -490,9 +390,6 @@ export const Storage = {
     const updated = Array.from(map.values());
     Storage.saveNilaiSiswa(updated);
     if (newRecords.length > 0) {
-      toast.success(`${newRecords.length} Nilai Siswa Berhasil Disimpan! 💯`, {
-        description: `Kelas: ${newRecords[0].kelas} • Mapel: ${newRecords[0].mapel}`
-      });
       Storage.logAudit('INPUT_NILAI', `Menginput ${newRecords.length} nilai siswa untuk kelas ${newRecords[0].kelas} - ${newRecords[0].mapel}`);
     }
   },
