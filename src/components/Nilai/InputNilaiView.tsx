@@ -60,14 +60,16 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
   const [selectedMapel, setSelectedMapel] = useState<string>('Desain Komunikasi Visual (DKV)');
   const [selectedGuru, setSelectedGuru] = useState<string>(currentUser.nama || 'Guru Pengampu');
   const [selectedHari, setSelectedHari] = useState<string>('Semua');
+  const [selectedTanggal, setSelectedTanggal] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [selectedJenisAsesmen, setSelectedJenisAsesmen] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Modals & Editable States
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState<boolean>(false);
-  const [editableGrades, setEditableGrades] = useState<Record<string, { formatif: number; praktik: number; catatan: string }>>({});
+  const [editableGrades, setEditableGrades] = useState<Record<string, { formatif: number; praktik: number; catatan: string; hari?: string; tanggal?: string }>>({});
   const [isSavedSuccessfully, setIsSavedSuccessfully] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isSyncingSheets, setIsSyncingSheets] = useState<boolean>(false);
+  const [sheetSyncStatus, setSheetSyncStatus] = useState<{ success?: boolean; message?: string } | null>(null);
 
   // Active School Setting fallback
   const activeSetting = setting || Storage.getSetting();
@@ -99,6 +101,27 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
     return 0;
   };
 
+  // Helper to map date to Indonesian day
+  const getHariFromDate = (dateStr: string): string => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return 'Senin';
+      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      return days[d.getDay()];
+    } catch {
+      return 'Senin';
+    }
+  };
+
+  // When selectedTanggal changes, optionally sync selectedHari if desired
+  const handleDateChange = (dateVal: string) => {
+    setSelectedTanggal(dateVal);
+    const day = getHariFromDate(dateVal);
+    if (day !== 'Minggu') {
+      setSelectedHari(day);
+    }
+  };
+
   // Filtered & Synchronized Records with Master Data Siswa
   const filteredRecords = useMemo(() => {
     // 1. Get students for selected class from Master Data
@@ -117,16 +140,17 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
         return {
           ...existing,
           guru: selectedGuru || existing.guru,
-          jenisAsesmen: selectedJenisAsesmen !== 'Semua' ? selectedJenisAsesmen : existing.jenisAsesmen
+          jenisAsesmen: (selectedJenisAsesmen !== 'Semua' ? selectedJenisAsesmen : existing.jenisAsesmen) as NilaiSiswaRecord['jenisAsesmen']
         };
       }
 
       // Default grade record initialized to 0 for selectedJenisAsesmen
-      const assignedJenis = selectedJenisAsesmen === 'Semua' ? 'Formatif (Tugas)' : selectedJenisAsesmen;
+      const assignedJenis = (selectedJenisAsesmen === 'Semua' ? 'Formatif (Tugas)' : selectedJenisAsesmen) as NilaiSiswaRecord['jenisAsesmen'];
+      const defaultHari = selectedHari !== 'Semua' ? selectedHari : getHariFromDate(selectedTanggal);
       return {
         id: `nil-sync-${student.id}-${assignedJenis.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        tanggal: new Date().toISOString().slice(0, 10),
-        hari: 'Senin',
+        tanggal: selectedTanggal,
+        hari: defaultHari,
         kelas: student.kelas,
         nis: student.nis,
         namaSiswa: student.nama,
@@ -152,7 +176,7 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
 
       return matchHari && matchAsesmen && matchSearch;
     });
-  }, [nilaiList, siswaList, selectedKelas, selectedMapel, selectedGuru, selectedHari, selectedJenisAsesmen, searchQuery, currentUser]);
+  }, [nilaiList, siswaList, selectedKelas, selectedMapel, selectedGuru, selectedHari, selectedTanggal, selectedJenisAsesmen, searchQuery, currentUser]);
 
   // Statistics
   const totalRecords = filteredRecords.length;
@@ -219,56 +243,125 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
   };
 
   // Handle Input Changes
-  const handleGradeChange = (id: string, field: 'formatif' | 'praktik' | 'catatan', value: any) => {
+  const handleGradeChange = (id: string, field: 'formatif' | 'praktik' | 'catatan' | 'hari' | 'tanggal', value: any) => {
     setEditableGrades(prev => {
       const existingRec = filteredRecords.find(r => r.id === id);
       const current = prev[id] || {
         formatif: existingRec ? existingRec.nilaiFormatif : 0,
         praktik: existingRec ? existingRec.nilaiPraktik : 0,
-        catatan: existingRec ? (existingRec.catatanGuru || '') : ''
+        catatan: existingRec ? (existingRec.catatanGuru || '') : '',
+        hari: existingRec ? existingRec.hari : (selectedHari !== 'Semua' ? selectedHari : 'Senin'),
+        tanggal: existingRec ? existingRec.tanggal : selectedTanggal
       };
+
+      let nextVal = value;
+      if (field === 'formatif' || field === 'praktik') {
+        nextVal = Math.min(100, Math.max(0, Number(value) || 0));
+      } else if (field === 'tanggal') {
+        const derivedHari = getHariFromDate(value);
+        return {
+          ...prev,
+          [id]: {
+            ...current,
+            tanggal: value,
+            hari: derivedHari !== 'Minggu' ? derivedHari : current.hari
+          }
+        };
+      }
 
       return {
         ...prev,
         [id]: {
           ...current,
-          [field]: field === 'catatan' ? value : Math.min(100, Math.max(0, Number(value) || 0))
+          [field]: nextVal
         }
       };
     });
   };
 
-  // Save Grades to Storage
-  const handleSaveGrades = async () => {
-    setIsSubmitting(true);
-    try {
-      const updatedRecords = filteredRecords.map(item => {
-        const edits = editableGrades[item.id];
-        if (!edits) return item;
-
-        const formatif = edits.formatif;
-        const praktik = edits.praktik;
-        const finalScore = calcFinalScore(formatif, praktik);
-        const predikat = finalScore >= 90 ? 'A' : finalScore >= 80 ? 'B' : finalScore >= 70 ? 'C' : 'D';
-        const isTuntas = finalScore >= 75;
-
-        return {
-          ...item,
-          nilaiFormatif: formatif,
-          nilaiPraktik: praktik,
-          nilaiAkhir: finalScore,
-          predikat: predikat as 'A' | 'B' | 'C' | 'D',
-          statusKelulusan: isTuntas ? ('Tuntas' as const) : ('Remedial' as const),
-          catatanGuru: edits.catatan || (isTuntas ? 'Hasil unjuk kerja memuaskan.' : 'Perlu pendampingan remedial.')
+  // Batch update Hari & Tanggal to all currently listed students
+  const handleApplyBatchDate = () => {
+    const derivedHari = selectedHari !== 'Semua' ? selectedHari : getHariFromDate(selectedTanggal);
+    setEditableGrades(prev => {
+      const next = { ...prev };
+      filteredRecords.forEach(r => {
+        const cur = next[r.id] || {
+          formatif: r.nilaiFormatif,
+          praktik: r.nilaiPraktik,
+          catatan: r.catatanGuru || ''
+        };
+        next[r.id] = {
+          ...cur,
+          hari: derivedHari,
+          tanggal: selectedTanggal
         };
       });
+      return next;
+    });
+    setIsSavedSuccessfully(true);
+    setTimeout(() => setIsSavedSuccessfully(false), 2500);
+  };
 
-      Storage.bulkSaveNilaiSiswa(updatedRecords);
-      setIsSavedSuccessfully(true);
-      setTimeout(() => setIsSavedSuccessfully(false), 3000);
-      onRefresh();
-    } finally {
-      setIsSubmitting(false);
+  // Save Grades to Storage & Trigger Real-time Google Sheets Sync
+  const handleSaveGrades = async () => {
+    const updatedRecords = filteredRecords.map(item => {
+      const edits = editableGrades[item.id];
+      if (!edits) return item;
+
+      const formatif = edits.formatif;
+      const praktik = edits.praktik;
+      const finalScore = calcFinalScore(formatif, praktik);
+      const predikat = finalScore >= 90 ? 'A' : finalScore >= 80 ? 'B' : finalScore >= 70 ? 'C' : 'D';
+      const isTuntas = finalScore >= 75;
+
+      return {
+        ...item,
+        hari: (edits.hari || item.hari || (selectedHari !== 'Semua' ? selectedHari : 'Senin')) as any,
+        tanggal: edits.tanggal || item.tanggal || selectedTanggal,
+        nilaiFormatif: formatif,
+        nilaiPraktik: praktik,
+        nilaiAkhir: finalScore,
+        predikat: predikat as 'A' | 'B' | 'C' | 'D',
+        statusKelulusan: isTuntas ? ('Tuntas' as const) : ('Remedial' as const),
+        catatanGuru: edits.catatan || (isTuntas ? 'Hasil unjuk kerja memuaskan.' : 'Perlu pendampingan remedial.')
+      };
+    });
+
+    // 1. Save to Local Storage & Audit Log
+    Storage.bulkSaveNilaiSiswa(updatedRecords);
+    setIsSavedSuccessfully(true);
+    setTimeout(() => setIsSavedSuccessfully(false), 4000);
+    onRefresh();
+
+    // 2. Auto-sync to Google Sheet if Google Apps Script URL or Access Token is available
+    const appScriptUrl = activeSetting.appsScriptUrl || localStorage.getItem('simagu_sheets_script_url');
+    if (appScriptUrl && appScriptUrl.startsWith('http')) {
+      setIsSyncingSheets(true);
+      try {
+        await fetch('/api/sheets/gas-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            webAppUrl: appScriptUrl,
+            payload: {
+              action: 'saveBulkNilai',
+              data: updatedRecords
+            }
+          })
+        });
+        setSheetSyncStatus({
+          success: true,
+          message: `Semua nilai (${updatedRecords.length} siswa) berhasil tersinkronisasi langsung ke Google Sheet!`
+        });
+      } catch (err: any) {
+        setSheetSyncStatus({
+          success: false,
+          message: `Nilai tersimpan di lokal SIMAGU. Sinkronisasi Sheet: ${err.message || 'Offline'}`
+        });
+      } finally {
+        setIsSyncingSheets(false);
+        setTimeout(() => setSheetSyncStatus(null), 5000);
+      }
     }
   };
 
@@ -337,9 +430,33 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
       {isSavedSuccessfully && (
         <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200 animate-fade-in">
           <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-          <p className="text-xs font-medium">
-            Nilai siswa berhasil disimpan ke LocalStorage dan tersinkronisasi dengan Database Operasional SIMAGU!
-          </p>
+          <div className="space-y-0.5">
+            <p className="text-xs font-bold">
+              Nilai siswa berhasil disimpan ke LocalStorage dan siap diexport/disinkronkan ke Google Sheet!
+            </p>
+            {isSyncingSheets && (
+              <p className="text-[11px] text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Sedang mengirim pembaruan ke Google Spreadsheet...
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Google Sheet Cloud Sync Status Notification */}
+      {sheetSyncStatus && (
+        <div className={`flex items-center gap-3 rounded-xl p-4 text-xs font-semibold animate-fade-in ${
+          sheetSyncStatus.success
+            ? 'bg-teal-50 border border-teal-200 text-teal-900 dark:bg-teal-950/40 dark:border-teal-800 dark:text-teal-200'
+            : 'bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200'
+        }`}>
+          {sheetSyncStatus.success ? (
+            <FileSpreadsheet className="h-5 w-5 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+          )}
+          <p>{sheetSyncStatus.message}</p>
         </div>
       )}
 
@@ -449,21 +566,46 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
               </select>
             </div>
 
-            {/* Select Hari */}
+            {/* Select Hari & Tanggal Manual */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1">Hari Pembelajaran</label>
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1 flex items-center justify-between">
+                <span>Hari Pembelajaran</span>
+                <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal">Pilih Manual</span>
+              </label>
               <select
                 value={selectedHari}
                 onChange={e => setSelectedHari(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
               >
-                <option value="Semua">Semua Hari (Senin - Jumat)</option>
-                <option value="Senin">Senin (2026-08-03)</option>
-                <option value="Selasa">Selasa (2026-08-04)</option>
-                <option value="Rabu">Rabu (2026-08-05)</option>
-                <option value="Kamis">Kamis (2026-08-06)</option>
-                <option value="Jumat">Jumat (2026-08-07)</option>
+                <option value="Semua">Semua Hari</option>
+                <option value="Senin">Senin</option>
+                <option value="Selasa">Selasa</option>
+                <option value="Rabu">Rabu</option>
+                <option value="Kamis">Kamis</option>
+                <option value="Jumat">Jumat</option>
+                <option value="Sabtu">Sabtu</option>
               </select>
+            </div>
+
+            {/* Select Tanggal Pelaksanaan Manual */}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1 flex items-center justify-between">
+                <span>Tanggal Pembelajaran</span>
+                <button
+                  type="button"
+                  onClick={handleApplyBatchDate}
+                  title="Terapkan Hari & Tanggal ini ke seluruh siswa pada tabel"
+                  className="text-[10px] font-bold text-teal-600 hover:text-teal-700 dark:text-teal-400 cursor-pointer underline"
+                >
+                  Terapkan ke Semua
+                </button>
+              </label>
+              <input
+                type="date"
+                value={selectedTanggal}
+                onChange={e => handleDateChange(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 text-xs font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
             </div>
 
             {/* Select Asesmen */}
@@ -560,6 +702,9 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
                   const currentPredikat = currentFinal >= 90 ? 'A' : currentFinal >= 80 ? 'B' : currentFinal >= 70 ? 'C' : 'D';
                   const currentIsTuntas = currentFinal >= 75;
 
+                  const currentHari = edits.hari || item.hari || 'Senin';
+                  const currentTanggal = edits.tanggal || item.tanggal || selectedTanggal;
+
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
                       <td className="py-3 px-4 text-center font-medium text-slate-400">{index + 1}</td>
@@ -567,8 +712,27 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
                       <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
                         {item.namaSiswa}
                       </td>
-                      <td className="py-3 px-4 text-[11px] text-slate-500">
-                        {item.hari}, {item.tanggal.split('-')[2]}/08
+                      <td className="py-2 px-3 text-[11px]">
+                        <div className="flex flex-col gap-1">
+                          <select
+                            value={currentHari}
+                            onChange={e => handleGradeChange(item.id, 'hari', e.target.value)}
+                            className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-1.5 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          >
+                            <option value="Senin">Senin</option>
+                            <option value="Selasa">Selasa</option>
+                            <option value="Rabu">Rabu</option>
+                            <option value="Kamis">Kamis</option>
+                            <option value="Jumat">Jumat</option>
+                            <option value="Sabtu">Sabtu</option>
+                          </select>
+                          <input
+                            type="date"
+                            value={currentTanggal}
+                            onChange={e => handleGradeChange(item.id, 'tanggal', e.target.value)}
+                            className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-1 py-0.5 text-[10px] font-mono text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          />
+                        </div>
                       </td>
                       <td className="py-3 px-4">
                         <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-400">
@@ -695,20 +859,10 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
 
             <button
               onClick={handleSaveGrades}
-              disabled={isSubmitting}
-              className="flex items-center gap-2 rounded-xl bg-teal-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-teal-700 transition active:scale-95 ml-1 disabled:opacity-60 cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-teal-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-teal-700 transition active:scale-95 ml-1"
             >
-              {isSubmitting ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Menyimpan...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  <span>Simpan Seluruh Nilai</span>
-                </>
-              )}
+              <Save className="h-4 w-4" />
+              Simpan Seluruh Nilai
             </button>
           </div>
         </div>
