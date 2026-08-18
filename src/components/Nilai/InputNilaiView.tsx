@@ -202,8 +202,15 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
         { label: 'Jenis Asesmen Filter', value: selectedJenisAsesmen },
         { label: 'Status Ketuntasan', value: `${tuntasCount} Tuntas, ${remedialCount} Remedial (Rata-rata: ${avgScore})` },
       ],
-      headers: ['NO', 'NIS', 'NAMA SISWA', 'KELAS', 'MATA PELAJARAN', 'GURU PENGAJAR', 'ASESMEN', 'N. FORMATIF', 'N. PRAKTIK', 'N. AKHIR', 'STATUS', 'EVALUASI GURU'],
-      alignments: ['center', 'center', 'left', 'center', 'left', 'left', 'left', 'center', 'center', 'center', 'center', 'left'],
+      headers: [
+        'NO', 'HARI', 'TANGGAL', 'NIS', 'NAMA SISWA', 'KELAS', 'MATA PELAJARAN',
+        'GURU PENGAMPU', 'JENIS ASESMEN', 'MATERI / EVALUASI', 'N. FORMATIF',
+        'N. PRAKTIK', 'N. AKHIR', 'PREDIKAT', 'STATUS KELULUSAN', 'CATATAN GURU'
+      ],
+      alignments: [
+        'center', 'center', 'center', 'center', 'left', 'center', 'left',
+        'left', 'left', 'left', 'center', 'center', 'center', 'center', 'center', 'left'
+      ],
       rows: filteredRecords.map((item, idx) => {
         const edits = editableGrades[item.id] || {
           formatif: item.nilaiFormatif,
@@ -213,18 +220,24 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
         const finalScore = calcFinalScore(edits.formatif, edits.praktik);
         const predikat = finalScore >= 90 ? 'A' : finalScore >= 80 ? 'B' : finalScore >= 70 ? 'C' : 'D';
         const isTuntas = finalScore >= 75;
+        const currentHari = edits.hari || item.hari || (selectedHari !== 'Semua' ? selectedHari : 'Senin');
+        const currentTanggal = edits.tanggal || item.tanggal || selectedTanggal;
 
         return [
           idx + 1,
+          currentHari,
+          currentTanggal,
           item.nis || '-',
           item.namaSiswa,
-          item.kelas,
-          selectedMapel,
-          selectedGuru,
+          item.kelas || selectedKelas,
+          item.mapel || selectedMapel,
+          item.guru || selectedGuru,
           item.jenisAsesmen,
+          item.materiJudul || 'Asesmen Formatif / Praktik',
           edits.formatif,
           edits.praktik,
           finalScore,
+          predikat,
           isTuntas ? 'Tuntas' : 'Remedial',
           edits.catatan || (isTuntas ? 'Hasil unjuk kerja memuaskan.' : 'Perlu pendampingan remedial.')
         ];
@@ -661,26 +674,31 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+          <table className="w-full text-left text-xs min-w-[1400px]">
+            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700 whitespace-nowrap">
               <tr>
-                <th className="py-3 px-4 w-12 text-center">No</th>
-                <th className="py-3 px-4 w-28">NIS</th>
-                <th className="py-3 px-4">Nama Lengkap Siswa</th>
-                <th className="py-3 px-4 w-28">Hari & Tgl</th>
-                <th className="py-3 px-4 w-32">Jenis Asesmen</th>
-                <th className="py-3 px-4 w-28 text-center bg-teal-50/50 dark:bg-teal-950/30">Nilai Formatif</th>
-                <th className="py-3 px-4 w-28 text-center bg-blue-50/50 dark:bg-blue-950/30">Nilai Praktik</th>
-                <th className="py-3 px-4 w-24 text-center font-bold">Nilai Akhir</th>
-                <th className="py-3 px-4 w-20 text-center">Predikat</th>
-                <th className="py-3 px-4 w-28 text-center">Status</th>
-                <th className="py-3 px-4">Catatan & Evaluasi Guru</th>
+                <th className="py-3 px-3 w-12 text-center">No</th>
+                <th className="py-3 px-3 w-24">Hari</th>
+                <th className="py-3 px-3 w-28">Tanggal</th>
+                <th className="py-3 px-3 w-24">NIS</th>
+                <th className="py-3 px-4 min-w-[180px]">Nama Siswa</th>
+                <th className="py-3 px-3 w-24">Kelas</th>
+                <th className="py-3 px-3 w-36">Mata Pelajaran</th>
+                <th className="py-3 px-3 w-36">Guru Pengampu</th>
+                <th className="py-3 px-3 w-36">Jenis Asesmen</th>
+                <th className="py-3 px-3 w-40">Materi / Evaluasi</th>
+                <th className="py-3 px-3 w-24 text-center bg-teal-50/50 dark:bg-teal-950/30">Nilai Formatif</th>
+                <th className="py-3 px-3 w-24 text-center bg-blue-50/50 dark:bg-blue-950/30">Nilai Praktik</th>
+                <th className="py-3 px-3 w-24 text-center font-bold">Nilai Akhir</th>
+                <th className="py-3 px-3 w-20 text-center">Predikat</th>
+                <th className="py-3 px-3 w-28 text-center">Status Kelulusan</th>
+                <th className="py-3 px-4 min-w-[200px]">Catatan Guru</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300 text-xs">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-slate-400">
+                  <td colSpan={16} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Award className="h-10 w-10 text-slate-300" />
                       <p className="font-medium">Tidak ada data penilaian untuk filter yang dipilih.</p>
@@ -707,37 +725,51 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
-                      <td className="py-3 px-4 text-center font-medium text-slate-400">{index + 1}</td>
-                      <td className="py-3 px-4 font-mono text-[11px] text-slate-500">{item.nis}</td>
+                      <td className="py-3 px-3 text-center font-medium text-slate-400">{index + 1}</td>
+                      <td className="py-2 px-3">
+                        <select
+                          value={currentHari}
+                          onChange={e => handleGradeChange(item.id, 'hari', e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-1.5 py-1 text-[11px] font-semibold text-teal-700 dark:text-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        >
+                          <option value="Senin">Senin</option>
+                          <option value="Selasa">Selasa</option>
+                          <option value="Rabu">Rabu</option>
+                          <option value="Kamis">Kamis</option>
+                          <option value="Jumat">Jumat</option>
+                          <option value="Sabtu">Sabtu</option>
+                        </select>
+                      </td>
+                      <td className="py-2 px-3">
+                        <input
+                          type="date"
+                          value={currentTanggal}
+                          onChange={e => handleGradeChange(item.id, 'tanggal', e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-1.5 py-1 text-[10px] font-mono text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        />
+                      </td>
+                      <td className="py-3 px-3 font-mono text-[11px] text-slate-500">{item.nis}</td>
                       <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
                         {item.namaSiswa}
                       </td>
-                      <td className="py-2 px-3 text-[11px]">
-                        <div className="flex flex-col gap-1">
-                          <select
-                            value={currentHari}
-                            onChange={e => handleGradeChange(item.id, 'hari', e.target.value)}
-                            className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-1.5 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          >
-                            <option value="Senin">Senin</option>
-                            <option value="Selasa">Selasa</option>
-                            <option value="Rabu">Rabu</option>
-                            <option value="Kamis">Kamis</option>
-                            <option value="Jumat">Jumat</option>
-                            <option value="Sabtu">Sabtu</option>
-                          </select>
-                          <input
-                            type="date"
-                            value={currentTanggal}
-                            onChange={e => handleGradeChange(item.id, 'tanggal', e.target.value)}
-                            className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-1 py-0.5 text-[10px] font-mono text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          />
-                        </div>
+                      <td className="py-3 px-3">
+                        <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                          {item.kelas || selectedKelas}
+                        </span>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                        {item.mapel || selectedMapel}
+                      </td>
+                      <td className="py-3 px-3 text-[11px] text-slate-600 dark:text-slate-400">
+                        {item.guru || selectedGuru}
+                      </td>
+                      <td className="py-3 px-3">
                         <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-400">
                           {item.jenisAsesmen}
                         </span>
+                      </td>
+                      <td className="py-3 px-3 text-[11px] text-slate-600 dark:text-slate-400">
+                        {item.materiJudul || 'Asesmen Formatif / Praktik'}
                       </td>
 
                       {/* Editable Formatif Input */}
@@ -765,12 +797,12 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
                       </td>
 
                       {/* Computed Final Score */}
-                      <td className="py-3 px-4 text-center font-bold text-slate-900 dark:text-white text-sm">
+                      <td className="py-3 px-3 text-center font-bold text-slate-900 dark:text-white text-sm">
                         {currentFinal}
                       </td>
 
                       {/* Computed Predikat Badge */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-3 text-center">
                         <span className={`inline-flex items-center justify-center h-7 w-7 rounded-full font-bold text-xs ${
                           currentPredikat === 'A' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
                           currentPredikat === 'B' ? 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300' :
@@ -782,7 +814,7 @@ export const InputNilaiView: React.FC<InputNilaiViewProps> = ({
                       </td>
 
                       {/* Computed Tuntas / Remedial Badge */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-3 text-center">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
                           currentIsTuntas
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
