@@ -285,9 +285,28 @@ async function startServer() {
       await updateSheetRange('Tugas_Siswa!A1', [tugasHeader, ...tugasRows]);
 
       // 14. Input Nilai Siswa
-      const nilaiHeader = ['No', 'NIS', 'Nama Siswa', 'Kelas', 'Mata Pelajaran', 'Jenis Evaluasi', 'Nilai', 'Keterangan'];
+      const nilaiHeader = [
+        'No', 'Hari', 'Tanggal', 'NIS', 'Nama Siswa', 'Kelas', 'Mata Pelajaran',
+        'Guru Pengampu', 'Jenis Asesmen', 'Materi / Evaluasi',
+        'Nilai Formatif', 'Nilai Praktik', 'Nilai Akhir', 'Predikat', 'Status Kelulusan', 'Catatan Guru'
+      ];
       const nilaiRows = (nilaiSiswaList || []).map((n: any, idx: number) => [
-        idx + 1, n.nis, n.namaSiswa, n.kelas, n.mapel, n.jenisEvaluasi || 'UH', n.nilai, n.keterangan || '-'
+        idx + 1,
+        n.hari || '-',
+        n.tanggal || '-',
+        n.nis || '-',
+        n.namaSiswa || '-',
+        n.kelas || '-',
+        n.mapel || '-',
+        n.guru || '-',
+        n.jenisAsesmen || n.jenisEvaluasi || 'Formatif (Tugas)',
+        n.materiJudul || '-',
+        n.nilaiFormatif !== undefined ? n.nilaiFormatif : (n.nilai || 0),
+        n.nilaiPraktik !== undefined ? n.nilaiPraktik : 0,
+        n.nilaiAkhir !== undefined ? n.nilaiAkhir : (n.nilai || 0),
+        n.predikat || (n.nilai >= 90 ? 'A' : n.nilai >= 80 ? 'B' : n.nilai >= 70 ? 'C' : 'D'),
+        n.statusKelulusan || ((n.nilaiAkhir || n.nilai || 0) >= 75 ? 'Tuntas' : 'Remedial'),
+        n.catatanGuru || n.keterangan || '-'
       ]);
       await updateSheetRange('Input_Nilai_Siswa!A1', [nilaiHeader, ...nilaiRows]);
 
