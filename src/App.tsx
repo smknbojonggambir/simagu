@@ -1,428 +1,637 @@
-import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, Users, UserCheck, Printer, Menu as MenuIcon } from 'lucide-react';
-import { Toaster } from 'sonner';
-import { Header } from './components/Header';
-import { Sidebar } from './components/Sidebar';
-import { Dashboard } from './components/Dashboard';
-import { AgendaGuruView } from './components/AgendaGuru/AgendaGuruView';
-import { AgendaKelasView } from './components/AgendaKelas/AgendaKelasView';
-import { AbsensiView } from './components/Absensi/AbsensiView';
-import { JadwalView } from './components/Jadwal/JadwalView';
-import { MasterDataView } from './components/MasterData/MasterDataView';
-import { MonitoringView } from './components/Monitoring/MonitoringView';
-import { DisiplinPrestasiView } from './components/DisiplinPrestasi/DisiplinPrestasiView';
-import { InventarisView } from './components/Inventaris/InventarisView';
-import { LaporanView } from './components/Laporan/LaporanView';
-import { PengaturanView } from './components/Pengaturan/PengaturanView';
-import { InputNilaiView } from './components/Nilai/InputNilaiView';
-import { MateriTugasView } from './components/Materi/MateriTugasView';
-import { GoogleDriveView } from './components/GoogleDrive/GoogleDriveView';
-import { AppsScriptModal } from './components/AppsScriptModal';
-import { GoogleSheetsSyncModal } from './components/GoogleSheetsSyncModal';
-import { LoginView } from './components/Auth/LoginView';
+import {
+  SchoolSetting,
+  GuruItem,
+  SiswaItem,
+  KelasItem,
+  JurusanItem,
+  MapelItem,
+  JadwalItem,
+  AgendaGuruItem,
+  AgendaKelasItem,
+  AbsensiGuruRecord,
+  AbsensiSiswaRecord,
+  SupervisiRecord,
+  MateriRecord,
+  TugasRecord,
+  NilaiSiswaRecord,
+  NotificationItem,
+  AuditLogItem,
+  User,
+  UserRole
+} from '../types';
 
-import { Storage } from './lib/storage';
-import { UserRole, User } from './types';
+export interface DriveFolderItem {
+  name: string;
+  id?: string;
+  webViewLink?: string;
+  path?: string;
+}
 
-export default function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('SIMAGU_AUTH_USER');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
+export interface DriveDepartmentFolderStructure {
+  kodeJurusan: string;
+  namaJurusan: string;
+  folderName: string;
+  folderId?: string;
+  webViewLink?: string;
+  path?: string;
+  subfolders: {
+    agendaGuru: DriveFolderItem;
+    agendaKelas: DriveFolderItem;
+    supervisi: DriveFolderItem;
+    presensiSiswa: DriveFolderItem;
+    exportFiles: DriveFolderItem;
+  };
+}
+
+export interface DriveFolderStructure {
+  schoolName: string;
+  tahunAjaran: string;
+  rootFolder: DriveFolderItem;
+  academicYearFolder: DriveFolderItem;
+  departments: DriveDepartmentFolderStructure[];
+  generalFolder: {
+    folderName: string;
+    folderId?: string;
+    webViewLink?: string;
+    subfolders: {
+      rekapGabungan: DriveFolderItem;
+      arsipSupervisi: DriveFolderItem;
+      exportDatabase: DriveFolderItem;
+    };
+  };
+  generatedAt: string;
+}
+import {
+  initialSchoolSetting,
+  initialGuru,
+  initialSiswa,
+  initialKelas,
+  initialJurusan,
+  initialMapel,
+  initialJadwal,
+  initialAgendaGuru,
+  initialAgendaKelas,
+  initialAbsensiGuru,
+  initialAbsensiSiswa,
+  initialSupervisi,
+  initialMateri,
+  initialTugas,
+  initialNilaiSiswa,
+  initialNotifications,
+  initialAuditLogs,
+  initialUsers
+} from '../data/mockData';
+
+const KEYS = {
+  SETTING: 'simagu_school_setting',
+  GURU: 'simagu_guru',
+  SISWA: 'simagu_siswa',
+  KELAS: 'simagu_kelas',
+  JURUSAN: 'simagu_jurusan',
+  MAPEL: 'simagu_mapel',
+  JADWAL: 'simagu_jadwal',
+  AGENDA_GURU: 'simagu_agenda_guru',
+  AGENDA_KELAS: 'simagu_agenda_kelas',
+  ABSENSI_GURU: 'simagu_absensi_guru',
+  ABSENSI_SISWA: 'simagu_absensi_siswa',
+  SUPERVISI: 'simagu_supervisi',
+  MATERI: 'simagu_materi',
+  TUGAS: 'simagu_tugas',
+  NILAI_SISWA: 'simagu_nilai_siswa',
+  NOTIFICATIONS: 'simagu_notifications',
+  AUDIT_LOGS: 'simagu_audit_logs',
+  USERS: 'simagu_users',
+  CURRENT_USER: 'simagu_current_user',
+  THEME: 'simagu_theme_mode',
+};
+
+// Production clean slate migration check for specified modules
+const PROD_CLEAN_KEY = 'simagu_prod_clean_records_v3';
+if (typeof window !== 'undefined') {
+  try {
+    if (localStorage.getItem(PROD_CLEAN_KEY) !== 'true') {
+      localStorage.setItem(KEYS.AGENDA_GURU, JSON.stringify([]));
+      localStorage.setItem(KEYS.AGENDA_KELAS, JSON.stringify([]));
+      localStorage.setItem(KEYS.SUPERVISI, JSON.stringify([]));
+      localStorage.setItem(KEYS.MATERI, JSON.stringify([]));
+      localStorage.setItem(KEYS.TUGAS, JSON.stringify([]));
+      localStorage.setItem(PROD_CLEAN_KEY, 'true');
+    }
+  } catch (err) {
+    console.warn('Storage initialization skipped due to environment constraints:', err);
+  }
+}
+
+function getItem<T>(key: string, fallback: T): T {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return fallback;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : fallback;
+  } catch (err) {
+    console.error(`Error loading key ${key}:`, err);
+    return fallback;
+  }
+}
+
+function setItem<T>(key: string, data: T): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.error(`Error saving key ${key}:`, err);
+  }
+}
+
+export const Storage = {
+  // Settings
+  getSetting: (): SchoolSetting => {
+    const saved = getItem(KEYS.SETTING, initialSchoolSetting);
+    if (!saved || saved.npsn !== '69989796' || saved.namaSekolah !== 'SMK NEGERI BOJONGGAMBIR' || saved.logoUrl !== initialSchoolSetting.logoUrl || saved.tahunPelajaran === '2025/2026' || !saved.googleSheetUrl || saved.googleSheetUrl.includes('1SIMAGU')) {
+      const updated = { ...initialSchoolSetting, ...saved, tahunPelajaran: '2026/2027', googleSheetUrl: 'https://docs.google.com/spreadsheets/d/1BTYSMyezYCtgUyuNA8MOpoCsf989f88ymbBV9CZihOs/edit', logoUrl: initialSchoolSetting.logoUrl };
+      setItem(KEYS.SETTING, updated);
+      return updated;
+    }
+    return saved;
+  },
+  saveSetting: (setting: SchoolSetting) => setItem(KEYS.SETTING, setting),
+
+  // Users & Auth
+  getUsers: (): User[] => {
+    const saved = getItem(KEYS.USERS, initialUsers);
+    const removedUsernames = ['suhandi', 'rangga_putra', 'zamzam_zenal', 'resa_yulianti', 'endah_nursolihah', 'zahra_rachmat', 'acep_asphia', 'hendri', 'rizki_akbar'];
+    if (!saved || saved.some(u => removedUsernames.includes(u.username))) {
+      const filtered = (saved || initialUsers).filter(u => !removedUsernames.includes(u.username));
+      setItem(KEYS.USERS, filtered.length > 0 ? filtered : initialUsers);
+      return filtered.length > 0 ? filtered : initialUsers;
+    }
+    return saved;
+  },
+  saveUsers: (data: User[]) => setItem(KEYS.USERS, data),
+  getCurrentUser: (): User => getItem(KEYS.CURRENT_USER, initialUsers[0]), // Default Admin
+  setCurrentUser: (user: User | null) => {
+    if (user) {
+      setItem(KEYS.CURRENT_USER, user);
+    } else {
+      localStorage.removeItem(KEYS.CURRENT_USER);
+    }
+  },
+
+  // Master Data
+  getGuru: (): GuruItem[] => {
+    const saved = getItem(KEYS.GURU, initialGuru);
+    const removedNames = [
+      'Suhandi, S.Pd.I.',
+      'Rangga Putra Riyadi, S.Pd.',
+      'Zamzam Zenal Arifin, S.M.',
+      'Resa Yulianti, S.Sos.',
+      'Endah Nur Solihah, S.Pd.',
+      'Zahra Rachmat Fauzi',
+      'Acep Asphia',
+      'Hendri',
+      'Rizki Akbar Nur Arifin'
+    ];
+    if (!saved || saved.some(g => removedNames.some(rn => g.nama?.includes(rn.split(',')[0])))) {
+      const cleaned = (saved || initialGuru).filter(g => !removedNames.some(rn => g.nama?.includes(rn.split(',')[0])));
+      setItem(KEYS.GURU, cleaned.length > 0 ? cleaned : initialGuru);
+      return cleaned.length > 0 ? cleaned : initialGuru;
+    }
+    return saved;
+  },
+  saveGuru: (data: GuruItem[]) => setItem(KEYS.GURU, data),
+
+  getSiswa: (): SiswaItem[] => {
+    const saved = getItem(KEYS.SISWA, initialSiswa);
+    if (!saved || saved.length < 200 || saved[0]?.nama !== 'Aip Paeja') {
+      setItem(KEYS.SISWA, initialSiswa);
+      return initialSiswa;
+    }
+    return saved;
+  },
+  saveSiswa: (data: SiswaItem[]) => setItem(KEYS.SISWA, data),
+
+  getKelas: (): KelasItem[] => {
+    const saved = getItem(KEYS.KELAS, initialKelas);
+    if (!saved || saved.length < 10 || saved[0]?.ruang === 'Studio DKV 1') {
+      setItem(KEYS.KELAS, initialKelas);
+      return initialKelas;
+    }
+    return saved;
+  },
+  saveKelas: (data: KelasItem[]) => setItem(KEYS.KELAS, data),
+
+  getJurusan: (): JurusanItem[] => {
+    const saved = getItem(KEYS.JURUSAN, initialJurusan);
+    if (!saved || saved.length < 2) {
+      setItem(KEYS.JURUSAN, initialJurusan);
+      return initialJurusan;
+    }
+    return saved;
+  },
+  saveJurusan: (data: JurusanItem[]) => setItem(KEYS.JURUSAN, data),
+
+  getMapel: (): MapelItem[] => {
+    const saved = getItem(KEYS.MAPEL, initialMapel);
+    if (!saved || saved.length < 18) {
+      setItem(KEYS.MAPEL, initialMapel);
+      return initialMapel;
+    }
+    return saved;
+  },
+  saveMapel: (data: MapelItem[]) => setItem(KEYS.MAPEL, data),
+
+  getJadwal: (): JadwalItem[] => {
+    const saved = getItem<JadwalItem[]>(KEYS.JADWAL, initialJadwal);
+    if (!saved || !Array.isArray(saved) || saved.length === 0) {
+      setItem(KEYS.JADWAL, initialJadwal);
+      return initialJadwal;
+    }
+    return saved;
+  },
+  saveJadwal: (data: JadwalItem[]) => setItem(KEYS.JADWAL, data),
+  addJadwal: (item: JadwalItem) => {
+    const list = Storage.getJadwal();
+    list.unshift(item);
+    Storage.saveJadwal(list);
+    Storage.logAudit('CREATE_JADWAL', `Menambahkan jadwal pelajaran ${item.mapel} (${item.kelas} - ${item.hari} JP ${item.jp})`);
+  },
+  updateJadwal: (id: string, updated: Partial<JadwalItem>) => {
+    const list = Storage.getJadwal();
+    const index = list.findIndex(j => j.id === id);
+    if (index !== -1) {
+      list[index] = { ...list[index], ...updated };
+      Storage.saveJadwal(list);
+      Storage.logAudit('UPDATE_JADWAL', `Memperbarui jadwal pelajaran ${list[index].mapel} (${list[index].kelas} - ${list[index].hari} JP ${list[index].jp})`);
+    }
+  },
+  deleteJadwal: (id: string) => {
+    const list = Storage.getJadwal();
+    const item = list.find(j => j.id === id);
+    const filtered = list.filter(j => j.id !== id);
+    Storage.saveJadwal(filtered);
+    if (item) {
+      Storage.logAudit('DELETE_JADWAL', `Menghapus jadwal pelajaran ${item.mapel} (${item.kelas} - ${item.hari} JP ${item.jp})`);
+    }
+  },
+
+  // Agendas
+  getAgendaGuru: (): AgendaGuruItem[] => {
+    return getItem(KEYS.AGENDA_GURU, initialAgendaGuru);
+  },
+  saveAgendaGuru: (data: AgendaGuruItem[]) => setItem(KEYS.AGENDA_GURU, data),
+  addAgendaGuru: (item: AgendaGuruItem) => {
+    const list = Storage.getAgendaGuru();
+    list.unshift(item);
+    Storage.saveAgendaGuru(list);
+
+    // Auto notification if any student marked Alpa
+    if (item.alpa > 0) {
+      const alpaStudents = item.siswaTidakHadir.filter(s => s.kategori === 'Alpa').map(s => s.nama).join(', ');
+      Storage.addNotification({
+        id: 'notif-' + Date.now(),
+        title: `Peringatan Alpa: ${item.kelas}`,
+        message: `Terdapat ${item.alpa} siswa Alpa pada jam pelajaran ${item.namaGuru}: ${alpaStudents}. Mohon Wali Kelas menindaklanjuti.`,
+        type: 'alert',
+        timestamp: new Date().toLocaleString('id-ID'),
+        read: false,
+        targetRole: 'Wali Kelas'
+      });
+    }
+
+    Storage.logAudit('CREATE_AGENDA_GURU', `Membuat Agenda Guru #${item.nomorAgenda} untuk kelas ${item.kelas}`);
+  },
+
+  getAgendaKelas: (): AgendaKelasItem[] => {
+    return getItem(KEYS.AGENDA_KELAS, initialAgendaKelas);
+  },
+  saveAgendaKelas: (data: AgendaKelasItem[]) => setItem(KEYS.AGENDA_KELAS, data),
+  addAgendaKelas: (item: AgendaKelasItem) => {
+    const list = Storage.getAgendaKelas();
+    list.unshift(item);
+    Storage.saveAgendaKelas(list);
+    Storage.logAudit('CREATE_AGENDA_KELAS', `Membuat Agenda Kelas #${item.nomorAgenda} - ${item.kelas}`);
+  },
+
+  // Absensi
+  getAbsensiGuru: (): AbsensiGuruRecord[] => {
+    return getItem(KEYS.ABSENSI_GURU, initialAbsensiGuru);
+  },
+  saveAbsensiGuru: (data: AbsensiGuruRecord[]) => setItem(KEYS.ABSENSI_GURU, data),
+
+  getAbsensiSiswa: (): AbsensiSiswaRecord[] => {
+    return getItem(KEYS.ABSENSI_SISWA, initialAbsensiSiswa);
+  },
+  saveAbsensiSiswa: (data: AbsensiSiswaRecord[]) => setItem(KEYS.ABSENSI_SISWA, data),
+
+  // Supervisi
+  getSupervisi: (): SupervisiRecord[] => {
+    return getItem(KEYS.SUPERVISI, initialSupervisi);
+  },
+  saveSupervisi: (data: SupervisiRecord[]) => setItem(KEYS.SUPERVISI, data),
+
+  // Materi & Tugas
+  getMateri: (): MateriRecord[] => {
+    return getItem(KEYS.MATERI, initialMateri);
+  },
+  saveMateri: (data: MateriRecord[]) => setItem(KEYS.MATERI, data),
+  addMateri: (item: MateriRecord) => {
+    const list = Storage.getMateri();
+    list.unshift(item);
+    Storage.saveMateri(list);
+    Storage.logAudit('CREATE_MATERI', `Membuat Materi: ${item.judulMateri} (${item.kelas})`);
+  },
+  updateMateri: (item: MateriRecord) => {
+    const list = Storage.getMateri().map(m => m.id === item.id ? item : m);
+    Storage.saveMateri(list);
+    Storage.logAudit('UPDATE_MATERI', `Mengubah Materi: ${item.judulMateri}`);
+  },
+  deleteMateri: (id: string) => {
+    const list = Storage.getMateri().filter(m => m.id !== id);
+    Storage.saveMateri(list);
+    Storage.logAudit('DELETE_MATERI', `Menghapus Materi ID: ${id}`);
+  },
+
+  getTugas: (): TugasRecord[] => {
+    return getItem(KEYS.TUGAS, initialTugas);
+  },
+  saveTugas: (data: TugasRecord[]) => setItem(KEYS.TUGAS, data),
+  addTugas: (item: TugasRecord) => {
+    const list = Storage.getTugas();
+    list.unshift(item);
+    Storage.saveTugas(list);
+    Storage.logAudit('CREATE_TUGAS', `Membuat Tugas: ${item.judulTugas} (${item.kelas})`);
+  },
+  updateTugas: (item: TugasRecord) => {
+    const list = Storage.getTugas().map(t => t.id === item.id ? item : t);
+    Storage.saveTugas(list);
+    Storage.logAudit('UPDATE_TUGAS', `Mengubah Tugas: ${item.judulTugas}`);
+  },
+  deleteTugas: (id: string) => {
+    const list = Storage.getTugas().filter(t => t.id !== id);
+    Storage.saveTugas(list);
+    Storage.logAudit('DELETE_TUGAS', `Menghapus Tugas ID: ${id}`);
+  },
+
+  // Input Nilai Siswa
+  getNilaiSiswa: (): NilaiSiswaRecord[] => {
+    const saved = getItem(KEYS.NILAI_SISWA, initialNilaiSiswa);
+    if (!saved || saved.length < 10) {
+      setItem(KEYS.NILAI_SISWA, initialNilaiSiswa);
+      return initialNilaiSiswa;
+    }
+    return saved;
+  },
+  saveNilaiSiswa: (data: NilaiSiswaRecord[]) => setItem(KEYS.NILAI_SISWA, data),
+  bulkSaveNilaiSiswa: (newRecords: NilaiSiswaRecord[]) => {
+    const currentList = Storage.getNilaiSiswa();
+    // Replace or insert
+    const map = new Map<string, NilaiSiswaRecord>();
+    currentList.forEach(item => map.set(item.id, item));
+    newRecords.forEach(item => map.set(item.id, item));
+    const updated = Array.from(map.values());
+    Storage.saveNilaiSiswa(updated);
+    if (newRecords.length > 0) {
+      Storage.logAudit('INPUT_NILAI', `Menginput ${newRecords.length} nilai siswa untuk kelas ${newRecords[0].kelas} - ${newRecords[0].mapel}`);
+    }
+  },
+
+  // Notifications
+  getNotifications: (): NotificationItem[] => getItem(KEYS.NOTIFICATIONS, initialNotifications),
+  addNotification: (notif: NotificationItem) => {
+    const list = Storage.getNotifications();
+    list.unshift(notif);
+    setItem(KEYS.NOTIFICATIONS, list);
+  },
+  markNotificationRead: (id: string) => {
+    const list = Storage.getNotifications().map(n => n.id === id ? { ...n, read: true } : n);
+    setItem(KEYS.NOTIFICATIONS, list);
+  },
+
+  // Audit Logs
+  getAuditLogs: (): AuditLogItem[] => getItem(KEYS.AUDIT_LOGS, initialAuditLogs),
+  saveAuditLogs: (logs: AuditLogItem[]) => setItem(KEYS.AUDIT_LOGS, logs),
+  clearAuditLogs: () => setItem(KEYS.AUDIT_LOGS, []),
+  deleteAuditLog: (id: string) => {
+    const logs = Storage.getAuditLogs().filter(l => l.id !== id);
+    setItem(KEYS.AUDIT_LOGS, logs);
+  },
+  logAudit: (action: string, details: string, userOverride?: { nama?: string; role?: string }) => {
+    const user = Storage.getCurrentUser();
+    const logs = Storage.getAuditLogs();
+    const userName = userOverride?.nama || user?.nama || 'Administrator SIMAGU';
+    const userRole = userOverride?.role || user?.role || 'Administrator';
+    
+    logs.unshift({
+      id: 'log-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      timestamp: new Date().toLocaleString('id-ID', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).replace(/\//g, '-'),
+      user: userName,
+      role: userRole,
+      action,
+      details,
+      ipAddress: '127.0.0.1'
+    });
+    setItem(KEYS.AUDIT_LOGS, logs.slice(0, 300)); // Keep latest 300 logs
+  },
+
+  // Theme
+  getThemeMode: (): 'light' | 'dark' => getItem(KEYS.THEME, 'light'),
+  setThemeMode: (theme: 'light' | 'dark') => setItem(KEYS.THEME, theme),
+
+  // Backup & Restore
+  exportBackupJSON: () => {
+    const rawLocalStorage: Record<string, any> = {};
+    if (typeof window !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('simagu_')) {
+          try {
+            rawLocalStorage[key] = JSON.parse(localStorage.getItem(key) || 'null');
+          } catch {
+            rawLocalStorage[key] = localStorage.getItem(key);
+          }
+        }
       }
     }
-    return null;
-  });
 
-  const [role, setRole] = useState<UserRole>(() => currentUser?.role || 'Administrator');
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
-  const [isAppsScriptModalOpen, setIsAppsScriptModalOpen] = useState<boolean>(false);
-  const [isGoogleSheetsModalOpen, setIsGoogleSheetsModalOpen] = useState<boolean>(false);
+    const data = {
+      setting: Storage.getSetting(),
+      guru: Storage.getGuru(),
+      siswa: Storage.getSiswa(),
+      kelas: Storage.getKelas(),
+      jurusan: Storage.getJurusan(),
+      mapel: Storage.getMapel(),
+      jadwal: Storage.getJadwal(),
+      agendaGuru: Storage.getAgendaGuru(),
+      agendaKelas: Storage.getAgendaKelas(),
+      absensiGuru: Storage.getAbsensiGuru(),
+      absensiSiswa: Storage.getAbsensiSiswa(),
+      supervisi: Storage.getSupervisi(),
+      materi: Storage.getMateri(),
+      tugas: Storage.getTugas(),
+      nilaiSiswa: Storage.getNilaiSiswa(),
+      users: Storage.getUsers(),
+      notifications: Storage.getNotifications(),
+      auditLogs: Storage.getAuditLogs(),
+      rawState: rawLocalStorage,
+      version: '1.0.0',
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SIMAGU_BACKUP_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    Storage.logAudit('BACKUP_DATABASE', 'Mengeksport backup data SIMAGU (localStorage) dalam format JSON');
+  },
 
-  // Keep role synced with currentUser
-  useEffect(() => {
-    if (currentUser?.role) {
-      setRole(currentUser.role);
-    }
-  }, [currentUser]);
+  importBackupJSON: (jsonString: string): boolean => {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (parsed.setting) Storage.saveSetting(parsed.setting);
+      if (parsed.guru) Storage.saveGuru(parsed.guru);
+      if (parsed.siswa) Storage.saveSiswa(parsed.siswa);
+      if (parsed.kelas) Storage.saveKelas(parsed.kelas);
+      if (parsed.jurusan) Storage.saveJurusan(parsed.jurusan);
+      if (parsed.mapel) Storage.saveMapel(parsed.mapel);
+      if (parsed.jadwal) Storage.saveJadwal(parsed.jadwal);
+      if (parsed.agendaGuru) Storage.saveAgendaGuru(parsed.agendaGuru);
+      if (parsed.agendaKelas) Storage.saveAgendaKelas(parsed.agendaKelas);
+      if (parsed.absensiGuru) Storage.saveAbsensiGuru(parsed.absensiGuru);
+      if (parsed.absensiSiswa) Storage.saveAbsensiSiswa(parsed.absensiSiswa);
+      if (parsed.supervisi) Storage.saveSupervisi(parsed.supervisi);
+      if (parsed.materi) Storage.saveMateri(parsed.materi);
+      if (parsed.tugas) Storage.saveTugas(parsed.tugas);
+      if (parsed.nilaiSiswa) Storage.saveNilaiSiswa(parsed.nilaiSiswa);
+      if (parsed.users) Storage.saveUsers(parsed.users);
+      if (parsed.notifications) setItem(KEYS.NOTIFICATIONS, parsed.notifications);
+      if (parsed.auditLogs) Storage.saveAuditLogs(parsed.auditLogs);
 
-  // Data states from Storage
-  const [setting, setSetting] = useState(Storage.getSetting());
-  const [guruList, setGuruList] = useState(Storage.getGuru());
-  const [siswaList, setSiswaList] = useState(Storage.getSiswa());
-  const [kelasList, setKelasList] = useState(Storage.getKelas());
-  const [jurusanList, setJurusanList] = useState(Storage.getJurusan());
-  const [mapelList, setMapelList] = useState(Storage.getMapel());
-  const [jadwalList, setJadwalList] = useState(Storage.getJadwal());
-  const [agendaGuruList, setAgendaGuruList] = useState(Storage.getAgendaGuru());
-  const [agendaKelasList, setAgendaKelasList] = useState(Storage.getAgendaKelas());
-  const [absensiGuruList, setAbsensiGuruList] = useState(Storage.getAbsensiGuru());
-  const [supervisiList, setSupervisiList] = useState(Storage.getSupervisi());
-  const [materiList, setMateriList] = useState(Storage.getMateri());
-  const [tugasList, setTugasList] = useState(Storage.getTugas());
-  const [nilaiList, setNilaiList] = useState(Storage.getNilaiSiswa());
-  const [auditLogs, setAuditLogs] = useState(Storage.getAuditLogs());
-
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    setRole(user.role);
-    localStorage.setItem('SIMAGU_AUTH_USER', JSON.stringify(user));
-    Storage.logAudit('USER_LOGIN', `Pengguna ${user.nama} (${user.role}) berhasil masuk ke sistem`);
-  };
-
-  const handleLogout = () => {
-    if (currentUser) {
-      Storage.logAudit('USER_LOGOUT', `Pengguna ${currentUser.nama} keluar dari sistem`);
-    }
-    setCurrentUser(null);
-    localStorage.removeItem('SIMAGU_AUTH_USER');
-  };
-
-  const activeUser: User = currentUser || {
-    id: 'usr-1',
-    username: 'admin',
-    nama: 'Administrator SIMAGU',
-    email: 'admin@smknbojonggambir.sch.id',
-    role: role,
-    nip: '19901017 202321 1 007'
-  };
-
-  const handleRefreshData = () => {
-    setSetting(Storage.getSetting());
-    setGuruList(Storage.getGuru());
-    setSiswaList(Storage.getSiswa());
-    setKelasList(Storage.getKelas());
-    setJurusanList(Storage.getJurusan());
-    setMapelList(Storage.getMapel());
-    setJadwalList(Storage.getJadwal());
-    setAgendaGuruList(Storage.getAgendaGuru());
-    setAgendaKelasList(Storage.getAgendaKelas());
-    setAbsensiGuruList(Storage.getAbsensiGuru());
-    setSupervisiList(Storage.getSupervisi());
-    setMateriList(Storage.getMateri());
-    setTugasList(Storage.getTugas());
-    setNilaiList(Storage.getNilaiSiswa());
-    setAuditLogs(Storage.getAuditLogs());
-  };
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
-
-  // If user is not authenticated, render Login View first
-  if (!currentUser) {
-    return (
-      <LoginView
-        onLogin={handleLogin}
-        users={Storage.getUsers()}
-        guruList={guruList}
-        setting={setting}
-      />
-    );
-  }
-
-  return (
-    <div className={`min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 flex flex-col antialiased selection:bg-teal-500 selection:text-white`}>
-      {/* Header Bar */}
-      <Header
-        currentUser={activeUser}
-        onUserChange={(u) => {
-          setCurrentUser(u);
-          setRole(u.role);
-          localStorage.setItem('SIMAGU_AUTH_USER', JSON.stringify(u));
-        }}
-        onLogout={handleLogout}
-        role={role}
-        onRoleChange={setRole}
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
-        onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
-        onOpenAppsScriptModal={() => setIsAppsScriptModalOpen(true)}
-        onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-        onNavigateTab={(tab) => setActiveTab(tab)}
-        agendaGuruList={agendaGuruList}
-        agendaKelasList={agendaKelasList}
-        jadwalList={jadwalList}
-      />
-
-      {/* Main Container */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Navigation */}
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isOpen={isMobileSidebarOpen}
-          onCloseMobile={() => setIsMobileSidebarOpen(false)}
-          role={role}
-        />
-
-        {/* Content View Area */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-20 lg:pb-8">
-          <div className="mx-auto max-w-7xl">
-            {activeTab === 'dashboard' && (
-              <Dashboard
-                guruList={guruList}
-                siswaList={siswaList}
-                kelasList={kelasList}
-                agendaGuruList={agendaGuruList}
-                agendaKelasList={agendaKelasList}
-                absensiGuruList={absensiGuruList}
-                supervisiList={supervisiList}
-                setting={setting}
-                currentUser={currentUser}
-                onNavigateTab={setActiveTab}
-                onOpenAppsScriptModal={() => setIsAppsScriptModalOpen(true)}
-                onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-              />
-            )}
-
-            {activeTab === 'agenda_guru' && (
-              <AgendaGuruView
-                agendas={agendaGuruList}
-                guruList={guruList}
-                kelasList={kelasList}
-                mapelList={mapelList}
-                jadwalList={jadwalList}
-                setting={setting}
-                currentUser={currentUser}
-                siswaList={siswaList}
-                onRefresh={handleRefreshData}
-                onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-              />
-            )}
-
-            {activeTab === 'agenda_kelas' && (
-              <AgendaKelasView
-                agendas={agendaKelasList}
-                kelasList={kelasList}
-                setting={setting}
-                currentUser={currentUser}
-                onRefresh={handleRefreshData}
-                onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-              />
-            )}
-
-            {activeTab === 'jadwal' && (
-              <JadwalView
-                jadwalList={jadwalList}
-                kelasList={kelasList}
-              />
-            )}
-
-            {activeTab === 'absensi' && (
-              <AbsensiView
-                siswaList={siswaList}
-                kelasList={kelasList}
-                guruList={guruList}
-                mapelList={mapelList}
-                jadwalList={jadwalList}
-                currentUser={currentUser}
-                onRefresh={handleRefreshData}
-              />
-            )}
-
-            {activeTab === 'materi' && (
-              <MateriTugasView
-                materiList={materiList}
-                tugasList={tugasList}
-                kelasList={kelasList}
-                mapelList={mapelList}
-                guruList={guruList}
-                currentUser={currentUser}
-                onRefresh={handleRefreshData}
-              />
-            )}
-
-            {activeTab === 'nilai' && (
-              <InputNilaiView
-                nilaiList={nilaiList}
-                siswaList={siswaList}
-                kelasList={kelasList}
-                mapelList={mapelList}
-                guruList={guruList}
-                currentUser={currentUser}
-                setting={setting}
-                onRefresh={handleRefreshData}
-              />
-            )}
-
-            {activeTab === 'master_data' && (
-              <MasterDataView
-                guruList={guruList}
-                siswaList={siswaList}
-                kelasList={kelasList}
-                jurusanList={jurusanList}
-                mapelList={mapelList}
-              />
-            )}
-
-            {activeTab === 'monitoring' && (
-              <MonitoringView
-                supervisiList={supervisiList}
-                agendaGuruList={agendaGuruList}
-                setting={setting}
-                currentUser={currentUser}
-                onRefresh={handleRefreshData}
-              />
-            )}
-
-            {activeTab === 'supervisi' && (
-              <MonitoringView
-                supervisiList={supervisiList}
-                agendaGuruList={agendaGuruList}
-                setting={setting}
-                currentUser={currentUser}
-                onRefresh={handleRefreshData}
-              />
-            )}
-
-            {activeTab === 'prestasi' && (
-              <DisiplinPrestasiView agendaKelasList={agendaKelasList} />
-            )}
-
-            {activeTab === 'pelanggaran' && (
-              <DisiplinPrestasiView agendaKelasList={agendaKelasList} />
-            )}
-
-            {activeTab === 'inventaris' && (
-              <InventarisView agendaKelasList={agendaKelasList} />
-            )}
-
-            {activeTab === 'laporan' && (
-              <LaporanView
-                agendaGuruList={agendaGuruList}
-                agendaKelasList={agendaKelasList}
-                supervisiList={supervisiList}
-                nilaiList={nilaiList}
-                siswaList={siswaList}
-                kelasList={kelasList}
-                guruList={guruList}
-                mapelList={mapelList}
-                setting={setting}
-                currentUser={currentUser}
-                onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-              />
-            )}
-
-            {activeTab === 'google_drive' && (
-              <GoogleDriveView
-                currentUser={activeUser}
-                onRefresh={handleRefreshData}
-              />
-            )}
-
-            {activeTab === 'gas_code' && (
-              <PengaturanView
-                setting={setting}
-                auditLogs={auditLogs}
-                currentUser={currentUser}
-                onOpenAppsScriptModal={() => setIsAppsScriptModalOpen(true)}
-                onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-                onRefresh={handleRefreshData}
-              />
-            )}
-
-            {activeTab === 'pengaturan' && (
-              <PengaturanView
-                setting={setting}
-                auditLogs={auditLogs}
-                currentUser={currentUser}
-                onOpenAppsScriptModal={() => setIsAppsScriptModalOpen(true)}
-                onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-                onRefresh={handleRefreshData}
-              />
-            )}
-          </div>
-        </main>
-      </div>
-
-      {/* Google Apps Script Modal */}
-      <AppsScriptModal
-        isOpen={isAppsScriptModalOpen}
-        onClose={() => setIsAppsScriptModalOpen(false)}
-      />
-
-      {/* Google Sheets Direct Sync Modal */}
-      <GoogleSheetsSyncModal
-        isOpen={isGoogleSheetsModalOpen}
-        onClose={() => setIsGoogleSheetsModalOpen(false)}
-        agendaGuruList={agendaGuruList}
-        agendaKelasList={agendaKelasList}
-        supervisiList={supervisiList}
-        guruList={guruList}
-        siswaList={siswaList}
-        setting={setting}
-      />
-
-      {/* Mobile Bottom Navigation Bar for Cars, Mobile Phones & Tablets */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-16 items-center justify-around border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur lg:hidden px-2 shadow-lg touch-manipulation">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex min-h-[44px] flex-col items-center justify-center py-1 px-3 rounded-xl transition active:scale-95 ${activeTab === 'dashboard' ? 'text-teal-600 dark:text-teal-400 font-extrabold' : 'text-slate-500 dark:text-slate-400 font-medium'}`}
-        >
-          <LayoutDashboard className="h-5 w-5" />
-          <span className="text-[10px] mt-0.5">Beranda</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('agenda_guru')}
-          className={`flex min-h-[44px] flex-col items-center justify-center py-1 px-3 rounded-xl transition active:scale-95 ${activeTab === 'agenda_guru' ? 'text-teal-600 dark:text-teal-400 font-extrabold' : 'text-slate-500 dark:text-slate-400 font-medium'}`}
-        >
-          <BookOpen className="h-5 w-5" />
-          <span className="text-[10px] mt-0.5">Agenda</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('absensi')}
-          className={`flex min-h-[44px] flex-col items-center justify-center py-1 px-3 rounded-xl transition active:scale-95 ${activeTab === 'absensi' ? 'text-teal-600 dark:text-teal-400 font-extrabold' : 'text-slate-500 dark:text-slate-400 font-medium'}`}
-        >
-          <UserCheck className="h-5 w-5" />
-          <span className="text-[10px] mt-0.5">Absensi</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('laporan')}
-          className={`flex min-h-[44px] flex-col items-center justify-center py-1 px-3 rounded-xl transition active:scale-95 ${activeTab === 'laporan' ? 'text-teal-600 dark:text-teal-400 font-extrabold' : 'text-slate-500 dark:text-slate-400 font-medium'}`}
-        >
-          <Printer className="h-5 w-5" />
-          <span className="text-[10px] mt-0.5">Laporan</span>
-        </button>
-
-        <button
-          onClick={() => setIsMobileSidebarOpen(true)}
-          className="flex min-h-[44px] flex-col items-center justify-center py-1 px-3 rounded-xl text-slate-500 dark:text-slate-400 font-medium hover:text-teal-600 active:scale-95"
-          title="Buka Seluruh Menu Navigasi"
-        >
-          <MenuIcon className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-          <span className="text-[10px] mt-0.5">Semua</span>
-        </button>
-      </nav>
-
-      {/* Global Toast Notifications (Sonner) */}
-      <Toaster 
-        position="top-right" 
-        richColors 
-        closeButton={false} 
-        maxToasts={1} 
-        duration={2500}
-        toastOptions={{
-          style: {
-            borderRadius: '12px',
-            fontFamily: 'sans-serif',
-            fontSize: '13px',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+      if (parsed.rawState && typeof parsed.rawState === 'object') {
+        Object.entries(parsed.rawState).forEach(([k, v]) => {
+          if (k.startsWith('simagu_')) {
+            localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
           }
-        }}
-      />
-    </div>
-  );
-}
+        });
+      }
+      Storage.logAudit('RESTORE_DATABASE', 'Memulihkan database SIMAGU dari file backup JSON');
+      return true;
+    } catch (err) {
+      console.error('Failed to import backup:', err);
+      return false;
+    }
+  },
+
+  resetAllToDefault: () => {
+    localStorage.clear();
+    Storage.logAudit('RESET_DATABASE', 'Mengembalikan seluruh data SIMAGU ke setelan awal pabrik');
+    window.location.reload();
+  },
+
+  // Google Drive Folder Structure Generator
+  generateGoogleDriveFolderStructure: async (options?: {
+    accessToken?: string;
+    tahunAjaran?: string;
+    jurusanList?: JurusanItem[];
+    schoolName?: string;
+  }): Promise<DriveFolderStructure> => {
+    const setting = Storage.getSetting();
+    const jurusanList = options?.jurusanList || Storage.getJurusan();
+    const tahunAjaran = options?.tahunAjaran || setting.tahunPelajaran || '2026/2027';
+    const schoolName = options?.schoolName || setting.namaSekolah || 'SMK NEGERI BOJONGGAMBIR';
+
+    // 1. Try real Google Drive folder creation if accessToken is provided
+    if (options?.accessToken) {
+      try {
+        const res = await fetch('/api/drive/create-folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accessToken: options.accessToken,
+            tahunAjaran,
+            jurusanList,
+            schoolName
+          })
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          if (result.success && result.folderStructure) {
+            setItem('simagu_drive_folder_structure', result.folderStructure);
+            Storage.logAudit('DRIVE_FOLDER_CREATE', `Berhasil membuat & menyinkronkan folder Google Drive untuk TA ${tahunAjaran}`);
+            return result.folderStructure;
+          }
+        }
+      } catch (err) {
+        console.warn('Google Drive backend endpoint error, generating local structure representation:', err);
+      }
+    }
+
+    // 2. Fallback / Local structure generation
+    const sanitizedSchool = schoolName.replace(/[^a-zA-Z0-9]/g, '_');
+    const sanitizedTA = tahunAjaran.replace(/\//g, '-');
+    const rootPath = `SIMAGU_Laporan_${sanitizedSchool}`;
+    const taPath = `${rootPath}/Tahun_Ajaran_${sanitizedTA}`;
+
+    const departments: DriveDepartmentFolderStructure[] = (jurusanList.length > 0 ? jurusanList : [
+      { id: '1', kodeJurusan: 'DKV', namaJurusan: 'Desain Komunikasi Visual', kepalaJurusan: '' },
+      { id: '2', kodeJurusan: 'TKJ', namaJurusan: 'Teknik Komputer dan Jaringan', kepalaJurusan: '' },
+      { id: '3', kodeJurusan: 'TKR', namaJurusan: 'Teknik Kendaraan Ringan', kepalaJurusan: '' }
+    ]).map(j => {
+      const deptFolder = `${j.namaJurusan} (${j.kodeJurusan})`;
+      const basePath = `${taPath}/${deptFolder}`;
+      return {
+        kodeJurusan: j.kodeJurusan,
+        namaJurusan: j.namaJurusan,
+        folderName: deptFolder,
+        path: basePath,
+        subfolders: {
+          agendaGuru: { name: '01_Laporan_Agenda_Guru', path: `${basePath}/01_Laporan_Agenda_Guru` },
+          agendaKelas: { name: '02_Laporan_Agenda_Kelas', path: `${basePath}/02_Laporan_Agenda_Kelas` },
+          supervisi: { name: '03_Laporan_Supervisi_Guru', path: `${basePath}/03_Laporan_Supervisi_Guru` },
+          presensiSiswa: { name: '04_Rekap_Presensi_Siswa', path: `${basePath}/04_Rekap_Presensi_Siswa` },
+          exportFiles: { name: '05_Berkas_Export_PDF_Excel', path: `${basePath}/05_Berkas_Export_PDF_Excel` }
+        }
+      };
+    });
+
+    const structure: DriveFolderStructure = {
+      schoolName,
+      tahunAjaran,
+      rootFolder: {
+        name: `SIMAGU_Laporan_${sanitizedSchool}`,
+        path: rootPath
+      },
+      academicYearFolder: {
+        name: `Tahun_Ajaran_${sanitizedTA}`,
+        path: taPath
+      },
+      departments,
+      generalFolder: {
+        folderName: 'Laporan_Umum_Sekolah',
+        subfolders: {
+          rekapGabungan: { name: 'Rekapitulasi_Gabungan_Sekolah', path: `${taPath}/Laporan_Umum_Sekolah/Rekapitulasi_Gabungan_Sekolah` },
+          arsipSupervisi: { name: 'Arsip_Supervisi_Kepala_Sekolah', path: `${taPath}/Laporan_Umum_Sekolah/Arsip_Supervisi_Kepala_Sekolah` },
+          exportDatabase: { name: 'Backup_Database_SIMAGU', path: `${taPath}/Laporan_Umum_Sekolah/Backup_Database_SIMAGU` }
+        }
+      },
+      generatedAt: new Date().toISOString()
+    };
+
+    setItem('simagu_drive_folder_structure', structure);
+    Storage.logAudit('DRIVE_FOLDER_CREATE', `Generasi struktur folder Google Drive lokal untuk TA ${tahunAjaran}`);
+    return structure;
+  },
+
+  getDriveFolderStructure: (): DriveFolderStructure | null => {
+    return getItem<DriveFolderStructure | null>('simagu_drive_folder_structure', null);
+  }
+};
