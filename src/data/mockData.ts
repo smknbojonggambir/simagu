@@ -34,9 +34,9 @@ export const initialSchoolSetting: SchoolSetting = {
   nipWakasekKurikulum: '19920521 202521 1 007',
   tahunPelajaran: '2026/2027',
   semester: 'Ganjil',
-  logoUrl: 'https://raw.githubusercontent.com/smknbojonggambir/simagu/main/logo.png',
-  googleSheetUrl: 'https://docs.google.com/spreadsheets/d/1057ndE274DiiOOPUkn2E-6Eet8M1fzpABTGc4Aln5Ug/edit',
-  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbwdP4xyVpfseBeDt2TrzyrNUQYhOuxX2638CDPs0XcisGGZNga0Ix4PgxGhSPv4aCj9/exec',
+  logoUrl: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEj2nISiQj-jbkcHI8rbm3kuat8yeHZk6x1jGcC3ryzyWhwR7J2pjIBdD0tdYrpx44IyIbPmSJJXJ6Lnk0VbKrRdSv05J_nF59t1YaiukpoYj3fgyLhK0ID7azgeAoXVBozIWC5weYmGyaK_xDLh8j2p1GsTrL3qhzEi-PyMt6-Jok8SqAuSU16LeIFFw_c/s320/LOGO%20.png',
+  googleSheetUrl: 'https://docs.google.com/spreadsheets/d/1BTYSMyezYCtgUyuNA8MOpoCsf989f88ymbBV9CZihOs/edit',
+  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbw4dY5rE7Rcb_53302ZXUUW_3_QnWcyTr86QKNGhMvLD-kBAnNjNdCLmgCkwJXqCUwC/exec',
   waNotificationActive: true,
 };
 
@@ -134,13 +134,13 @@ export const initialJadwal: JadwalItem[] = completeJadwalData;
 
 const weeklyData = generateWeeklyOperationalData();
 
-export const initialAgendaGuru: AgendaGuruItem[] = weeklyData.agendaGuruList;
-export const initialAgendaKelas: AgendaKelasItem[] = weeklyData.agendaKelasList;
+export const initialAgendaGuru: AgendaGuruItem[] = [];
+export const initialAgendaKelas: AgendaKelasItem[] = [];
 export const initialAbsensiGuru: AbsensiGuruRecord[] = weeklyData.absensiGuruList;
 export const initialAbsensiSiswa: AbsensiSiswaRecord[] = weeklyData.absensiSiswaList;
-export const initialSupervisi: SupervisiRecord[] = weeklyData.supervisiList;
-export const initialMateri: MateriRecord[] = weeklyData.materiList;
-export const initialTugas: TugasRecord[] = weeklyData.tugasList;
+export const initialSupervisi: SupervisiRecord[] = [];
+export const initialMateri: MateriRecord[] = [];
+export const initialTugas: TugasRecord[] = [];
 export const initialNilaiSiswa: NilaiSiswaRecord[] = weeklyData.nilaiSiswaList;
 export const initialNotifications: NotificationItem[] = [];
 export const initialAuditLogs: AuditLogItem[] = [];
