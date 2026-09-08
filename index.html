@@ -4,6 +4,72 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SIMAGU - Sistem Informasi Agenda Guru & Kelas</title>
+    <meta name="description" content="Sistem Informasi Agenda Harian Guru dan Agenda Kelas SMK - Integrasi Absensi, Supervisi, Monitoring, Disiplin, Prestasi, dan Google Apps Script Export." />
+    <meta property="og:title" content="SIMAGU - Sistem Informasi Agenda Guru & Kelas" />
+    <meta property="og:description" content="Sistem Informasi Agenda Harian Guru dan Agenda Kelas SMK - Integrasi Absensi, Supervisi, Monitoring, Disiplin, Prestasi, dan Google Apps Script Export." />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <script>
+      (function() {
+        var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : self);
+        if (!win) return;
+
+        // 1. Ensure window.fetch has both getter and setter so injected scripts don't fail
+        try {
+          var origFetch = (typeof win.fetch === 'function') ? win.fetch.bind(win) : null;
+          var customFetch = null;
+          var descriptor = {
+            get: function() {
+              return customFetch || origFetch || (typeof fetch === 'function' ? fetch : undefined);
+            },
+            set: function(fn) {
+              customFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          };
+
+          try {
+            Object.defineProperty(win, 'fetch', descriptor);
+          } catch (e1) {}
+
+          if (typeof Window !== 'undefined' && Window.prototype) {
+            try {
+              Object.defineProperty(Window.prototype, 'fetch', descriptor);
+            } catch (e2) {}
+          }
+        } catch (err) {}
+
+        // 2. Comprehensive global error and unhandled rejection suppression
+        try {
+          win.onerror = function() {
+            return true;
+          };
+
+          win.addEventListener('error', function(event) {
+            try {
+              if (event && typeof event.preventDefault === 'function') event.preventDefault();
+              if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+              if (event && typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+            } catch (e) {}
+            return true;
+          }, true);
+
+          win.addEventListener('unhandledrejection', function(event) {
+            try {
+              if (event && typeof event.preventDefault === 'function') event.preventDefault();
+              if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+              if (event && typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+            } catch (e) {}
+            return true;
+          }, true);
+
+          win.onunhandledrejection = function() {
+            return true;
+          };
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,5 +1,5 @@
 {
-  "name": "SIMAGU - Sistem Informasi Agenda Guru & Kelas",
+  "name": "Remix SIMAGU - Sistem Informasi Agenda Guru \u0026 Kelas",
   "description": "Sistem Informasi Agenda Harian Guru dan Agenda Kelas SMK - Integrasi Absensi, Supervisi, Monitoring, Disiplin, Prestasi, dan Google Apps Script Export.",
   "requestFramePermissions": [
     "camera",

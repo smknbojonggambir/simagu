@@ -76,29 +76,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Drawer */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex w-72 max-w-[85vw] lg:w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-900 text-slate-100 transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex w-72 max-w-[85vw] lg:w-64 flex-col border-r border-[#1e4a77] text-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ backgroundColor: '#163A5F' }}
       >
         {/* Top Header inside Sidebar */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1 shadow-xs overflow-hidden shrink-0">
+        <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1 shadow-xs overflow-hidden shrink-0 border border-white/20">
               <img
-                src="https://raw.githubusercontent.com/smknbojonggambir/simagu/main/logo.png"
+                src="/logo.png"
                 alt="Logo SMKN Bojonggambir"
                 className="h-full w-full object-contain"
-                referrerPolicy="no-referrer"
               />
             </div>
             <div>
               <span className="text-sm font-bold text-white tracking-wide block leading-none">SIMAGU</span>
-              <span className="text-[10px] text-teal-400 font-medium">SMKN Bojonggambir</span>
+              <span className="text-[11px] text-blue-200 font-medium">SMKN Bojonggambir</span>
             </div>
           </div>
           <button
             onClick={onCloseMobile}
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-white active:scale-95 touch-manipulation lg:hidden"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-white/70 hover:bg-white/10 hover:text-white active:scale-95 touch-manipulation lg:hidden"
             title="Tutup Menu"
           >
             <X className="h-6 w-6" />
@@ -106,12 +106,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Database Status Widget */}
-        <div className="mx-3 my-3 rounded-lg bg-slate-800/80 border border-slate-700 p-2.5">
-          <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-emerald-400 animate-pulse" />
+        <div className="mx-3 my-3 rounded-xl bg-white/5 border border-white/10 p-2.5 backdrop-blur-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300">
+              <Database className="h-4 w-4 text-emerald-400" />
+            </div>
             <div className="text-xs">
-              <span className="font-semibold text-slate-200 block">Database Connected</span>
-              <span className="text-[10px] text-slate-400">Google Sheets Sync Ready</span>
+              <span className="font-semibold text-white block">Database Aktif</span>
+              <span className="text-[10px] text-blue-200/80">Google Sheets Sync Ready</span>
             </div>
           </div>
         </div>
@@ -128,26 +130,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setActiveTab(item.id);
                   onCloseMobile();
                 }}
-                className={`group flex w-full min-h-[44px] items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition active:scale-[0.98] touch-manipulation ${
+                className={`group relative flex w-full min-h-[44px] items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] touch-manipulation ${
                   isActive
-                    ? 'bg-teal-600 text-white font-bold shadow-md shadow-teal-600/30'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'shadow-xs font-bold'
+                    : 'text-white/80 hover:text-white'
                 }`}
+                style={
+                  isActive
+                    ? { backgroundColor: '#EFF6FF', color: '#163A5F' }
+                    : { backgroundColor: 'transparent' }
+                }
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = 'rgba(239, 246, 255, 0.12)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
               >
-                <div className="flex items-center gap-2.5">
-                  <Icon className={`h-4 w-4 shrink-0 transition ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-teal-400'}`} />
-                  <span className="text-left">{item.label}</span>
+                {/* Active Indicator Bar */}
+                {isActive && (
+                  <span 
+                    className="absolute left-1 top-2.5 bottom-2.5 w-1 rounded-full"
+                    style={{ backgroundColor: '#2563EB' }}
+                  />
+                )}
+
+                <div className="flex items-center gap-2.5 pl-1.5">
+                  <Icon 
+                    className="h-4 w-4 shrink-0 transition" 
+                    style={{ color: isActive ? '#2563EB' : 'rgba(255, 255, 255, 0.75)' }} 
+                  />
+                  <span className="text-left leading-tight">{item.label}</span>
                 </div>
-                {isActive && <ChevronRight className="h-4 w-4 shrink-0 text-white" />}
+                {isActive && (
+                  <ChevronRight className="h-4 w-4 shrink-0" style={{ color: '#163A5F' }} />
+                )}
               </button>
             );
           })}
         </nav>
 
         {/* Footer info */}
-        <div className="border-t border-slate-800 p-3 text-center text-[10px] text-slate-400">
-          <p className="font-medium text-slate-300">SIMAGU SMK System</p>
-          <p>© 2026 Google Apps Script & Sheets</p>
+        <div className="border-t border-white/10 p-3 text-center text-[10px] text-blue-200/70">
+          <p className="font-semibold text-white/90">SIMAGU School System</p>
+          <p className="text-[9px] mt-0.5">SMKN Bojonggambir • Professional Theme</p>
         </div>
       </aside>
     </>

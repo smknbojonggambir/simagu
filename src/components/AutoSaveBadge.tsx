@@ -130,13 +130,12 @@ export const AutoSaveBadge: React.FC<AutoSaveBadgeProps> = ({ onManualSaveSucces
     return () => window.removeEventListener('simagu_data_changed', handleDataChanged);
   }, []);
 
-  // Handle BeforeUnload to force auto-save before closing browser/tab
+  // Handle BeforeUnload to silently trigger local save if window unloads
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      AutoSaveManager.performSave();
-      // Unsaved changes safety message
-      e.preventDefault();
-      e.returnValue = '';
+    const handleBeforeUnload = () => {
+      try {
+        AutoSaveManager.performSave().catch(() => {});
+      } catch {}
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);

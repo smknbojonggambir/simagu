@@ -16,12 +16,14 @@ export interface User {
   email: string;
   avatar?: string;
   kelasWali?: string; // e.g. "XI RPL 1"
+  password?: string;
 }
 
 export interface SchoolSetting {
   namaSekolah: string;
   npsn: string;
   alamat: string;
+  kota?: string;
   telepon: string;
   email: string;
   website: string;
@@ -105,11 +107,26 @@ export interface JadwalItem {
   ruang: string;
   status: 'Aktif' | 'Izin' | 'Kosong' | 'Pengganti';
   kodeGuru?: string;
+  keterangan?: string;
   // Relational Foreign Keys
   id_guru?: string;
   id_mapel?: string;
   id_kelas?: string;
   id_ruang?: string;
+}
+
+export interface RawJadwalItem {
+  no: number;
+  hari: string;
+  jamKe: string;
+  jamMulai: string;
+  jamSelesai: string;
+  kelas: string;
+  mapel: string;
+  kodeGuru: string;
+  namaGuru: string;
+  keterangan: string;
+  ruang?: string;
 }
 
 // Agenda Harian Guru Format A-J
@@ -270,23 +287,32 @@ export interface AgendaKelasItem {
   pelanggaranList: {
     id: string;
     namaSiswa: string;
+    kelas?: string;
+    tanggal?: string;
     pelanggaran: string;
     kategori: 'Ringan' | 'Sedang' | 'Berat';
     poin: number;
     guruPelapor: string;
+    kronologi?: string;
     tindakan: string;
+    sanksi?: string;
     tindakLanjut: string;
+    status?: 'Dalam Pembinaan' | 'Selesai' | 'Surat Panggilan';
   }[];
 
   // Prestasi
   prestasiList: {
     id: string;
     namaSiswa: string;
+    kelas?: string;
     bidang: string;
     tingkat: 'Sekolah' | 'Kabupaten' | 'Provinsi' | 'Nasional' | 'Internasional';
+    namaKegiatan?: string;
     juara: string;
+    penyelenggara?: string;
     tanggal: string;
     keterangan: string;
+    buktiUrl?: string;
   }[];
 
   // Kesehatan
@@ -300,6 +326,15 @@ export interface AgendaKelasItem {
 
   // Inventaris Kelas
   inventarisList: {
+    id?: string;
+    kode?: string;
+    kategori?: string;
+    satuan?: string;
+    kondisi?: 'Baik' | 'Rusak Ringan' | 'Rusak Berat' | 'Hilang';
+    lokasi?: string;
+    tanggalPengadaan?: string;
+    sumberDana?: string;
+    harga?: number;
     barang: string;
     jumlah: number;
     baik: number;
@@ -454,8 +489,12 @@ export interface TugasRecord {
 
 export interface NilaiSiswaRecord {
   id: string;
-  tanggal: string;
-  hari: string;
+  assessmentId?: string;
+  tanggal: string; // YYYY-MM-DD
+  hari: string; // Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, Minggu
+  modeHari?: 'otomatis' | 'manual';
+  tahunPelajaran?: string;
+  semester?: 'Ganjil' | 'Genap' | string;
   kelas: string;
   nis: string;
   namaSiswa: string;
@@ -530,4 +569,26 @@ export interface AuditLogItem {
   action: string;
   details: string;
   ipAddress?: string;
+}
+
+export interface MonitoringPembelajaranRecord {
+  id: string;
+  nomorMonitoring: string;
+  tanggal: string;
+  hari: string;
+  guru: string;
+  mapel: string;
+  kelas: string;
+  materi: string;
+  kehadiran: number; // persentase atau jumlah hadir
+  jumlahHadir?: number;
+  totalSiswa?: number;
+  keterlaksanaan: 'Terlaksana Penuh' | 'Terlaksana Sebagian' | 'Tertunda / Kendala';
+  kendala: string;
+  catatan: string;
+  tindakLanjut: string;
+  status: 'Tercapai' | 'Dalam Proses' | 'Perlu Perhatian';
+  supervisor?: string;
+  ruang?: string;
+  jamKe?: string;
 }

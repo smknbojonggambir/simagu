@@ -26,6 +26,14 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(
     options.orientation || 'landscape'
   );
+  const [paperSize, setPaperSize] = useState<'a4' | 'f4'>(options.paperSize || 'a4');
+  const [margin, setMargin] = useState<'normal' | 'compact'>(options.margin || 'normal');
+  const [showKop, setShowKop] = useState<boolean>(options.showKop !== false);
+  const [showLogo, setShowLogo] = useState<boolean>(options.showLogo !== false);
+  const [showFilterInfo, setShowFilterInfo] = useState<boolean>(options.showFilterInfo !== false);
+  const [showSignatures, setShowSignatures] = useState<boolean>(options.showSignatures !== false);
+  const [showPrintDate, setShowPrintDate] = useState<boolean>(options.showPrintDate !== false);
+  const [showSettingsDrawer, setShowSettingsDrawer] = useState<boolean>(false);
 
   const isLandscape = orientation === 'landscape';
   const logoUrl = setting.logoUrl || OFFICIAL_SCHOOL_LOGO;
@@ -37,14 +45,39 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const signLeftNama = options.signLeft?.nama || setting.kepalaSekolah || 'Iman Rahmat, S.Pd.I.';
   const signLeftNip = options.signLeft?.nip || setting.nipKepalaSekolah || '-';
 
+  const signCenterRole = options.signCenter?.role;
+  const signCenterNama = options.signCenter?.nama;
+  const signCenterNip = options.signCenter?.nip;
+
   const signRightRole = options.signRight?.role || 'Guru Mata Pelajaran / Wali Kelas';
   const signRightNama = options.signRight?.nama || setting.wakasekKurikulum || 'Wahab Mughni Sa\'dillah, S.Pd.';
   const signRightNip = options.signRight?.nip || setting.nipWakasekKurikulum || '-';
   const signRightLocationDate = options.signRight?.locationDate || `${kota}, ${todayStr}`;
 
-  const handlePrintWindow = () => {
-    printHtmlReport(setting, { ...options, orientation });
+  const currentOptions: PrintReportOptions = {
+    ...options,
+    orientation,
+    paperSize,
+    margin,
+    showKop,
+    showLogo,
+    showFilterInfo,
+    showSignatures,
+    showPrintDate
   };
+
+  const handlePrintWindow = () => {
+    printHtmlReport(setting, currentOptions);
+  };
+
+  // Paper dimensions in mm
+  const paperWidthMm = paperSize === 'f4' 
+    ? (isLandscape ? 330 : 215)
+    : (isLandscape ? 297 : 210);
+  const paperMinHeightMm = paperSize === 'f4'
+    ? (isLandscape ? 215 : 330)
+    : (isLandscape ? 210 : 297);
+  const paperPadding = margin === 'compact' ? '8mm 10mm 10mm 10mm' : '12mm 15mm 15mm 15mm';
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/90 backdrop-blur-md text-slate-100 overflow-hidden">
@@ -117,6 +150,18 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             </button>
           </div>
 
+          {/* PDF Settings Toggle */}
+          <button
+            onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition border ${
+              showSettingsDrawer
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+          >
+            <span>⚙️ Pengaturan PDF</span>
+          </button>
+
           {/* Action Buttons */}
           <div className="h-6 w-[1px] bg-slate-700 mx-1" />
 
@@ -158,6 +203,112 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         </div>
       </div>
 
+      {/* PDF Settings Drawer */}
+      {showSettingsDrawer && (
+        <div className="border-b border-slate-700 bg-slate-900/95 px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 text-xs shrink-0">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Paper Size */}
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-400">Ukuran Kertas:</span>
+              <div className="flex rounded-lg bg-slate-800 p-0.5 border border-slate-700">
+                <button
+                  onClick={() => setPaperSize('a4')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                    paperSize === 'a4' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  A4 (210×297 mm)
+                </button>
+                <button
+                  onClick={() => setPaperSize('f4')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                    paperSize === 'f4' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  F4 / Folio (215×330 mm)
+                </button>
+              </div>
+            </div>
+
+            {/* Margin */}
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-400">Margin:</span>
+              <div className="flex rounded-lg bg-slate-800 p-0.5 border border-slate-700">
+                <button
+                  onClick={() => setMargin('normal')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                    margin === 'normal' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Normal
+                </button>
+                <button
+                  onClick={() => setMargin('compact')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                    margin === 'compact' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Sempit
+                </button>
+              </div>
+            </div>
+
+            {/* Toggles */}
+            <div className="flex items-center gap-3 pl-2 border-l border-slate-700">
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={showKop}
+                  onChange={(e) => setShowKop(e.target.checked)}
+                  className="rounded text-teal-500 focus:ring-0"
+                />
+                <span>Kop Resmi</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={showLogo}
+                  onChange={(e) => setShowLogo(e.target.checked)}
+                  className="rounded text-teal-500 focus:ring-0"
+                />
+                <span>Logo</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={showFilterInfo}
+                  onChange={(e) => setShowFilterInfo(e.target.checked)}
+                  className="rounded text-teal-500 focus:ring-0"
+                />
+                <span>Info Filter</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={showSignatures}
+                  onChange={(e) => setShowSignatures(e.target.checked)}
+                  className="rounded text-teal-500 focus:ring-0"
+                />
+                <span>Tanda Tangan</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={showPrintDate}
+                  onChange={(e) => setShowPrintDate(e.target.checked)}
+                  className="rounded text-teal-500 focus:ring-0"
+                />
+                <span>Tanggal Cetak</span>
+              </label>
+            </div>
+          </div>
+
+          <span className="text-[11px] text-teal-400 font-medium">
+            Perubahan format akan otomatis diterapkan saat mencetak.
+          </span>
+        </div>
+      )}
+
       {/* Main Preview Workspace */}
       <div className="flex-1 overflow-auto p-6 flex justify-center bg-slate-950/80">
         <div
@@ -168,48 +319,52 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           }}
           className="my-auto shadow-2xl rounded-sm transition-all"
         >
-          {/* Simulated A4 Paper */}
+          {/* Simulated Paper */}
           <div
             style={{
-              width: isLandscape ? '297mm' : '210mm',
-              minHeight: isLandscape ? '210mm' : '297mm',
-              padding: '12mm 15mm 15mm 15mm'
+              width: `${paperWidthMm}mm`,
+              minHeight: `${paperMinHeightMm}mm`,
+              padding: paperPadding
             }}
             className="bg-white text-slate-950 shadow-2xl font-sans relative flex flex-col justify-between"
           >
             <div>
               {/* Kop Surat Header */}
-              <div className="flex items-center justify-between border-b-4 border-double border-black pb-2 mb-3">
-                <div className="w-[75px] text-center flex-shrink-0">
-                  <img
-                    src={logoUrl}
-                    alt="Logo Sekolah"
-                    className="w-[70px] h-[70px] object-contain mx-auto"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
+              {showKop && (
+                <div className="flex items-center justify-between border-b-4 border-double border-black pb-2 mb-3">
+                  {showLogo && (
+                    <div className="w-[75px] text-center flex-shrink-0">
+                      <img
+                        src={logoUrl}
+                        alt="Logo Sekolah"
+                        className="w-[70px] h-[70px] object-contain mx-auto"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 text-center px-2">
+                    <h4 className="m-0 text-[11pt] font-bold uppercase tracking-wider text-black">
+                      PEMERINTAH PROVINSI JAWA BARAT
+                    </h4>
+                    <h4 className="m-0 text-[10pt] font-bold uppercase text-black">DINAS PENDIDIKAN</h4>
+                    <h5 className="m-0 text-[9.5pt] font-bold uppercase text-black">
+                      CABANG DINAS PENDIDIKAN WILAYAH XII
+                    </h5>
+                    <h2 className="my-0.5 text-[14pt] font-extrabold uppercase text-black tracking-wide">
+                      {(setting.namaSekolah || 'SMK NEGERI BOJONGGAMBIR').toUpperCase()}
+                    </h2>
+                    <p className="m-0 text-[8pt] text-slate-800 font-medium">
+                      NPSN: {setting.npsn || '69989796'} | Alamat: {setting.alamat || 'Jl. Bojonggambir Kp. Mandalawangi, Kec. Bojonggambir'}
+                    </p>
+                    <p className="m-0 text-[8pt] text-slate-800 font-medium">
+                      Telp: {setting.telepon || '(0265) 754321'} | Email: {setting.email || 'admin@smknbojonggambir.sch.id'} | Website: {setting.website || 'www.smknbojonggambir.sch.id'}
+                    </p>
+                  </div>
+                  {showLogo && <div className="w-[75px] flex-shrink-0" />}
                 </div>
-                <div className="flex-1 text-center px-2">
-                  <h4 className="m-0 text-[11pt] font-bold uppercase tracking-wider text-black">
-                    PEMERINTAH PROVINSI JAWA BARAT
-                  </h4>
-                  <h4 className="m-0 text-[10pt] font-bold uppercase text-black">DINAS PENDIDIKAN</h4>
-                  <h5 className="m-0 text-[9.5pt] font-bold uppercase text-black">
-                    CABANG DINAS PENDIDIKAN WILAYAH XII
-                  </h5>
-                  <h2 className="my-0.5 text-[14pt] font-extrabold uppercase text-black tracking-wide">
-                    {(setting.namaSekolah || 'SMK NEGERI BOJONGGAMBIR').toUpperCase()}
-                  </h2>
-                  <p className="m-0 text-[8pt] text-slate-800 font-medium">
-                    NPSN: {setting.npsn || '69989796'} | Alamat: {setting.alamat || 'Jl. Bojonggambir Kp. Mandalawangi, Kec. Bojonggambir'}
-                  </p>
-                  <p className="m-0 text-[8pt] text-slate-800 font-medium">
-                    Telp: {setting.telepon || '(0265) 754321'} | Email: {setting.email || 'admin@smknbojonggambir.sch.id'} | Website: {setting.website || 'www.smknbojonggambir.sch.id'}
-                  </p>
-                </div>
-                <div className="w-[75px] flex-shrink-0" />
-              </div>
+              )}
 
               {/* Document Title Header */}
               <div className="text-center my-3">
@@ -227,12 +382,24 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
               </div>
 
               {/* Optional Metadata Grid */}
-              {options.metadataGrid && options.metadataGrid.length > 0 && (
+              {showFilterInfo && options.metadataGrid && options.metadataGrid.length > 0 && (
                 <div className="grid grid-cols-2 gap-1 mb-3 text-[8.5pt] border border-slate-300 rounded-xs bg-slate-50 p-2">
                   {options.metadataGrid.map((meta, idx) => (
                     <div key={idx} className="flex gap-2">
                       <span className="font-bold w-36 text-slate-800">{meta.label}:</span>
                       <span className="text-slate-900">{meta.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Summary KPI Cards if available */}
+              {options.summaryCards && options.summaryCards.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {options.summaryCards.map((card, idx) => (
+                    <div key={idx} className="flex-1 min-w-[100px] border border-slate-300 bg-slate-50 p-2 rounded text-center">
+                      <div className="text-[7.5pt] text-slate-600 font-bold uppercase">{card.label}</div>
+                      <div className="text-[11pt] font-bold text-teal-800 mt-0.5" style={{ color: card.color }}>{card.value}</div>
                     </div>
                   ))}
                 </div>
@@ -280,31 +447,56 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             </div>
 
             {/* Signature & Footer Section */}
-            <div className="mt-6 pt-2">
-              <div className="flex justify-between text-[9pt]">
-                {/* Left Signature */}
-                <div className="w-5/12 text-center">
-                  <p className="m-0 whitespace-pre-line font-medium text-slate-900">{signLeftRole}</p>
-                  <div className="h-14" />
-                  <p className="m-0 font-bold underline text-black">{signLeftNama}</p>
-                  <p className="m-0 text-[8.5pt] text-slate-800">NIP. {signLeftNip}</p>
-                </div>
-
-                {/* Right Signature */}
-                <div className="w-5/12 text-center">
-                  <p className="m-0 font-medium text-slate-900">{signRightLocationDate}</p>
-                  <p className="m-0 whitespace-pre-line font-medium text-slate-900">{signRightRole}</p>
-                  <div className="h-14" />
-                  <p className="m-0 font-bold underline text-black">{signRightNama}</p>
-                  <p className="m-0 text-[8.5pt] text-slate-800">NIP. {signRightNip}</p>
-                </div>
+            {showSignatures && (
+              <div className="mt-6 pt-2">
+                {signCenterRole && signCenterNama ? (
+                  // 3-column Signatures
+                  <div className="flex justify-between text-[8.5pt]">
+                    <div className="w-[30%] text-center">
+                      <p className="m-0 whitespace-pre-line font-medium text-slate-900">{signLeftRole}</p>
+                      <div className="h-14" />
+                      <p className="m-0 font-bold underline text-black">{signLeftNama}</p>
+                      <p className="m-0 text-[8pt] text-slate-800">NIP. {signLeftNip}</p>
+                    </div>
+                    <div className="w-[30%] text-center">
+                      <p className="m-0 whitespace-pre-line font-medium text-slate-900">{signCenterRole}</p>
+                      <div className="h-14" />
+                      <p className="m-0 font-bold underline text-black">{signCenterNama}</p>
+                      <p className="m-0 text-[8pt] text-slate-800">NIP. {signCenterNip || '-'}</p>
+                    </div>
+                    <div className="w-[30%] text-center">
+                      <p className="m-0 font-medium text-slate-900">{signRightLocationDate}</p>
+                      <p className="m-0 whitespace-pre-line font-medium text-slate-900">{signRightRole}</p>
+                      <div className="h-14" />
+                      <p className="m-0 font-bold underline text-black">{signRightNama}</p>
+                      <p className="m-0 text-[8pt] text-slate-800">NIP. {signRightNip}</p>
+                    </div>
+                  </div>
+                ) : (
+                  // 2-column Signatures
+                  <div className="flex justify-between text-[9pt]">
+                    <div className="w-5/12 text-center">
+                      <p className="m-0 whitespace-pre-line font-medium text-slate-900">{signLeftRole}</p>
+                      <div className="h-14" />
+                      <p className="m-0 font-bold underline text-black">{signLeftNama}</p>
+                      <p className="m-0 text-[8.5pt] text-slate-800">NIP. {signLeftNip}</p>
+                    </div>
+                    <div className="w-5/12 text-center">
+                      <p className="m-0 font-medium text-slate-900">{signRightLocationDate}</p>
+                      <p className="m-0 whitespace-pre-line font-medium text-slate-900">{signRightRole}</p>
+                      <div className="h-14" />
+                      <p className="m-0 font-bold underline text-black">{signRightNama}</p>
+                      <p className="m-0 text-[8.5pt] text-slate-800">NIP. {signRightNip}</p>
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
 
-              {/* Bottom Document Footer */}
-              <div className="mt-6 pt-2 border-t border-slate-300 flex justify-between text-[7.5pt] text-slate-500 font-sans">
-                <div>Dokumen Resmi Administrasi Sekolah | SIMAGU - {setting.namaSekolah || 'SMK NEGERI BOJONGGAMBIR'}</div>
-                <div>Dicetak pada: {todayStr} Pukul {timeStr} WIB</div>
-              </div>
+            {/* Bottom Document Footer */}
+            <div className="mt-6 pt-2 border-t border-slate-300 flex justify-between text-[7.5pt] text-slate-500 font-sans">
+              <div>Dokumen Resmi Administrasi Sekolah | SIMAGU - {setting.namaSekolah || 'SMK NEGERI BOJONGGAMBIR'}</div>
+              <div>{showPrintDate ? `Dicetak pada: ${todayStr} Pukul ${timeStr} WIB` : ''}</div>
             </div>
           </div>
         </div>

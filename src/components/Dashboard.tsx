@@ -192,58 +192,73 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const stats = [
-    { label: 'Jumlah Guru', value: safeGuruList.length, icon: Users, color: 'bg-blue-500', tab: 'master_data' },
-    { label: 'Jumlah Siswa', value: safeSiswaList.length, icon: GraduationCap, color: 'bg-emerald-500', tab: 'master_data' },
-    { label: 'Jumlah Kelas', value: safeKelasList.length, icon: School, color: 'bg-violet-500', tab: 'master_data' },
-    { label: 'Agenda Hari Ini', value: totalAgendaToday, icon: BookOpen, color: 'bg-teal-500', tab: 'agenda_guru' },
-    { label: 'Siswa Hadir', value: totalSiswaHadir, icon: UserCheck, color: 'bg-teal-600', tab: 'absensi' },
-    { label: 'Siswa Sakit', value: totalSiswaSakit, icon: Clock, color: 'bg-amber-500', tab: 'absensi' },
-    { label: 'Siswa Izin', value: totalSiswaIzin, icon: Clock, color: 'bg-sky-500', tab: 'absensi' },
-    { label: 'Siswa Alpa', value: totalSiswaAlpa, icon: AlertOctagon, color: 'bg-rose-600', tab: 'absensi' },
-    { label: 'Siswa Terlambat', value: totalSiswaTerlambat, icon: Clock, color: 'bg-orange-500', tab: 'absensi' },
-    { label: 'Pelanggaran', value: totalPelanggaran, icon: AlertOctagon, color: 'bg-rose-500', tab: 'pelanggaran' },
-    { label: 'Prestasi Siswa', value: totalPrestasi, icon: Award, color: 'bg-amber-400', tab: 'prestasi' },
-    { label: 'Supervisi Akademik', value: totalSupervisi, icon: ClipboardCheck, color: 'bg-indigo-500', tab: 'supervisi' },
-    { label: 'Tugas Pembelajaran', value: totalTugas, icon: FileText, color: 'bg-cyan-500', tab: 'materi' },
-    { label: 'Dokumentasi Foto', value: totalDokumentasi, icon: Camera, color: 'bg-fuchsia-500', tab: 'agenda_guru' },
+    { label: 'Jumlah Guru', value: safeGuruList.length, icon: Users, color: 'text-[#2563EB] bg-blue-50 dark:bg-blue-950/60', tab: 'master_data' },
+    { label: 'Jumlah Siswa', value: safeSiswaList.length, icon: GraduationCap, color: 'text-[#16A34A] bg-green-50 dark:bg-green-950/60', tab: 'master_data' },
+    { label: 'Jumlah Kelas', value: safeKelasList.length, icon: School, color: 'text-[#163A5F] bg-slate-100 dark:bg-slate-800', tab: 'master_data' },
+    { label: 'Agenda Hari Ini', value: totalAgendaToday, icon: BookOpen, color: 'text-[#2563EB] bg-blue-50 dark:bg-blue-950/60', tab: 'agenda_guru' },
+    { label: 'Siswa Hadir', value: totalSiswaHadir, icon: UserCheck, color: 'text-[#16A34A] bg-green-50 dark:bg-green-950/60', tab: 'absensi' },
+    { label: 'Siswa Sakit', value: totalSiswaSakit, icon: Clock, color: 'text-[#F59E0B] bg-amber-50 dark:bg-amber-950/60', tab: 'absensi' },
+    { label: 'Siswa Izin', value: totalSiswaIzin, icon: Clock, color: 'text-[#2563EB] bg-blue-50 dark:bg-blue-950/60', tab: 'absensi' },
+    { label: 'Siswa Alpa', value: totalSiswaAlpa, icon: AlertOctagon, color: 'text-[#DC2626] bg-red-50 dark:bg-red-950/60', tab: 'absensi' },
+    { label: 'Siswa Terlambat', value: totalSiswaTerlambat, icon: Clock, color: 'text-[#F59E0B] bg-amber-50 dark:bg-amber-950/60', tab: 'absensi' },
+    { label: 'Pelanggaran', value: totalPelanggaran, icon: AlertOctagon, color: 'text-[#DC2626] bg-red-50 dark:bg-red-950/60', tab: 'pelanggaran' },
+    { label: 'Prestasi Siswa', value: totalPrestasi, icon: Award, color: 'text-[#F59E0B] bg-amber-50 dark:bg-amber-950/60', tab: 'prestasi' },
+    { label: 'Supervisi Akademik', value: totalSupervisi, icon: ClipboardCheck, color: 'text-[#163A5F] bg-slate-100 dark:bg-slate-800', tab: 'supervisi' },
+    { label: 'Tugas Pembelajaran', value: totalTugas, icon: FileText, color: 'text-[#2563EB] bg-blue-50 dark:bg-blue-950/60', tab: 'materi' },
+    { label: 'Dokumentasi Foto', value: totalDokumentasi, icon: Camera, color: 'text-[#163A5F] bg-slate-100 dark:bg-slate-800', tab: 'agenda_guru' },
   ];
 
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-700 via-teal-800 to-slate-900 p-6 text-white shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl bg-[#163A5F] border border-[#1e4a77] p-6 text-white shadow-md">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 rounded-full bg-teal-500/20 border border-teal-400/30 px-3 py-1 text-xs font-semibold text-teal-200">
-              <CalendarCheck className="h-3.5 w-3.5" />
-              <span>{setting.tahunPelajaran} • Semester {setting.semester}</span>
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-white p-2 border border-white/20 shrink-0 shadow-md flex items-center justify-center">
+              <img
+                src={setting.logoUrl || '/logo.png'}
+                alt="Logo SMKN Bojonggambir"
+                className="h-full w-full object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target.src !== '/logo.png' && !target.src.endsWith('/logo.png')) {
+                    target.src = '/logo.png';
+                  }
+                }}
+              />
             </div>
-            <h2 className="text-2xl font-bold tracking-tight">
-              Selamat Datang di SIMAGU, {currentUser.nama}!
-            </h2>
-            <p className="text-sm text-teal-100/90 max-w-2xl">
-              Sistem Informasi Agenda Guru & Agenda Kelas SMK. Kelola pembelajaran, absensi, supervisi, dan dokumentasi secara real-time dengan integrasi Google Sheets.
-            </p>
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-semibold text-blue-200">
+                <CalendarCheck className="h-3.5 w-3.5 text-blue-300" />
+                <span>{setting.tahunPelajaran} • Semester {setting.semester}</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Selamat Datang di SIMAGU, {currentUser.nama}!
+              </h2>
+              <p className="text-xs sm:text-sm text-blue-100/90 max-w-2xl">
+                Sistem Informasi Agenda Guru & Agenda Kelas SMK. Kelola pembelajaran, absensi, supervisi, dan dokumentasi secara real-time dengan integrasi Google Sheets.
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={() => onNavigateTab('agenda_guru')}
-              className="flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-teal-800 shadow hover:bg-teal-50 transition"
+              className="flex items-center gap-1.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition cursor-pointer"
             >
               <PlusCircle className="h-4 w-4" />
               <span>Isi Agenda Guru</span>
             </button>
             <button
               onClick={() => onNavigateTab('agenda_kelas')}
-              className="flex items-center gap-1.5 rounded-xl bg-teal-600/60 border border-teal-400/30 px-4 py-2.5 text-xs font-bold text-white hover:bg-teal-600 transition"
+              className="flex items-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2.5 text-xs font-bold text-white transition cursor-pointer"
             >
               <PlusCircle className="h-4 w-4" />
               <span>Isi Agenda Kelas</span>
             </button>
             <button
               onClick={onOpenAppsScriptModal}
-              className="flex items-center gap-1.5 rounded-xl bg-slate-800/80 border border-slate-700 px-3.5 py-2.5 text-xs font-semibold text-teal-300 hover:bg-slate-800 transition"
+              className="flex items-center gap-1.5 rounded-xl bg-[#0f2742] hover:bg-[#143354] border border-blue-400/30 px-3.5 py-2.5 text-xs font-semibold text-blue-200 transition cursor-pointer"
             >
               <Download className="h-4 w-4" />
               <span>GAS Code</span>
@@ -253,16 +268,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* QUICK ACTIONS PANEL (Aksi Cepat 1-Klik) */}
-      <div className="rounded-2xl border border-teal-500/20 bg-gradient-to-br from-white via-teal-50/30 to-emerald-50/20 dark:from-slate-900 dark:via-slate-900/90 dark:to-slate-950 p-4 sm:p-5 shadow-sm space-y-3">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white shadow-md shadow-teal-600/30">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2563EB] text-white shadow-md shadow-blue-600/20">
               <Zap className="h-5 w-5 fill-current" />
             </div>
             <div>
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <h3 className="text-sm font-bold text-[#163A5F] dark:text-white tracking-tight flex items-center gap-2">
                 <span>Aksi Cepat (Quick Actions 1-Klik)</span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#2563EB] dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                   Instant Access
                 </span>
               </h3>
@@ -277,18 +292,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Quick Action 1: Absensi Harian */}
           <button
             onClick={() => onNavigateTab('absensi')}
-            className="group relative flex flex-col justify-between rounded-xl border border-teal-200 dark:border-teal-800/60 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-teal-500 dark:hover:border-teal-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
+            className="group relative flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-[#2563EB] hover:bg-[#EFF6FF]/40 dark:hover:border-blue-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 group-hover:bg-teal-600 group-hover:text-white transition">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50 dark:bg-green-950/50 text-[#16A34A] group-hover:bg-[#16A34A] group-hover:text-white transition">
                 <UserCheck className="h-5 w-5" />
               </div>
-              <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950 px-2 py-0.5 rounded-md border border-teal-200 dark:border-teal-800">
+              <span className="text-[10px] font-bold text-[#16A34A] bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-md border border-green-200 dark:border-green-800">
                 1-Klik
               </span>
             </div>
             <div className="mt-3">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition">
+              <h4 className="text-xs font-bold text-[#163A5F] dark:text-white group-hover:text-[#2563EB] transition">
                 Input Absensi Harian
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
@@ -300,18 +315,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Quick Action 2: Agenda Kelas */}
           <button
             onClick={() => onNavigateTab('agenda_kelas')}
-            className="group relative flex flex-col justify-between rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
+            className="group relative flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-[#2563EB] hover:bg-[#EFF6FF]/40 dark:hover:border-blue-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 group-hover:bg-emerald-600 group-hover:text-white transition">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] group-hover:bg-[#2563EB] group-hover:text-white transition">
                 <School className="h-5 w-5" />
               </div>
-              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+              <span className="text-[10px] font-bold text-[#2563EB] bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
                 1-Klik
               </span>
             </div>
             <div className="mt-3">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
+              <h4 className="text-xs font-bold text-[#163A5F] dark:text-white group-hover:text-[#2563EB] transition">
                 Catat Agenda Kelas
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
@@ -323,18 +338,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Quick Action 3: Isi Agenda Guru */}
           <button
             onClick={() => onNavigateTab('agenda_guru')}
-            className="group relative flex flex-col justify-between rounded-xl border border-blue-200 dark:border-blue-800/60 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
+            className="group relative flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-[#2563EB] hover:bg-[#EFF6FF]/40 dark:hover:border-blue-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 group-hover:bg-blue-600 group-hover:text-white transition">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] group-hover:bg-[#2563EB] group-hover:text-white transition">
                 <BookOpen className="h-5 w-5" />
               </div>
-              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
+              <span className="text-[10px] font-bold text-[#2563EB] bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
                 1-Klik
               </span>
             </div>
             <div className="mt-3">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+              <h4 className="text-xs font-bold text-[#163A5F] dark:text-white group-hover:text-[#2563EB] transition">
                 Isi Agenda KBM Guru
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
@@ -345,19 +360,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           {/* Quick Action 4: Disiplin & Catatan */}
           <button
-            onClick={() => onNavigateTab('kedisiplinan')}
-            className="group relative flex flex-col justify-between rounded-xl border border-amber-200 dark:border-amber-800/60 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-amber-500 dark:hover:border-amber-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
+            onClick={() => onNavigateTab('pelanggaran')}
+            className="group relative flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-[#2563EB] hover:bg-[#EFF6FF]/40 dark:hover:border-blue-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 group-hover:bg-amber-600 group-hover:text-white transition">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/50 text-[#F59E0B] group-hover:bg-[#F59E0B] group-hover:text-white transition">
                 <AlertOctagon className="h-5 w-5" />
               </div>
-              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800">
+              <span className="text-[10px] font-bold text-[#F59E0B] bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800">
                 1-Klik
               </span>
             </div>
             <div className="mt-3">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition">
+              <h4 className="text-xs font-bold text-[#163A5F] dark:text-white group-hover:text-[#2563EB] transition">
                 Catat Disiplin Siswa
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
@@ -369,18 +384,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Quick Action 5: Cetak Laporan */}
           <button
             onClick={() => onNavigateTab('laporan')}
-            className="group relative flex flex-col justify-between rounded-xl border border-purple-200 dark:border-purple-800/60 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-purple-500 dark:hover:border-purple-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
+            className="group relative flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-[#2563EB] hover:bg-[#EFF6FF]/40 dark:hover:border-blue-400 hover:shadow-md active:scale-95 transition text-left cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 group-hover:bg-purple-600 group-hover:text-white transition">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-[#163A5F] dark:text-blue-300 group-hover:bg-[#163A5F] group-hover:text-white transition">
                 <FileText className="h-5 w-5" />
               </div>
-              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800">
+              <span className="text-[10px] font-bold text-[#163A5F] dark:text-blue-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
                 1-Klik
               </span>
             </div>
             <div className="mt-3">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">
+              <h4 className="text-xs font-bold text-[#163A5F] dark:text-white group-hover:text-[#2563EB] transition">
                 Cetak Laporan & Rekap
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
@@ -392,18 +407,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Quick Action 6: Kirim Data ke Google Sheet */}
           <button
             onClick={() => onOpenGoogleSheetsModal ? onOpenGoogleSheetsModal() : onNavigateTab('laporan')}
-            className="group relative flex flex-col justify-between rounded-xl border border-teal-300 dark:border-teal-800/80 bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800/90 p-3.5 shadow-2xs hover:border-teal-500 dark:hover:border-teal-400 hover:shadow-md active:scale-95 transition text-left col-span-2 sm:col-span-1 cursor-pointer"
+            className="group relative flex flex-col justify-between rounded-xl border border-emerald-300 dark:border-emerald-800/80 bg-white dark:bg-slate-800/90 p-3.5 shadow-2xs hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-md active:scale-95 transition text-left col-span-2 sm:col-span-1 cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-600 text-white shadow-xs group-hover:bg-teal-700 transition">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-[#16A34A] shadow-xs group-hover:bg-[#16A34A] group-hover:text-white transition">
                 <FileSpreadsheet className="h-5 w-5" />
               </div>
-              <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950 px-2 py-0.5 rounded-md border border-teal-300 dark:border-teal-800">
+              <span className="text-[10px] font-bold text-[#16A34A] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-800">
                 Live Sync
               </span>
             </div>
             <div className="mt-3">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition">
+              <h4 className="text-xs font-bold text-[#163A5F] dark:text-white group-hover:text-[#16A34A] transition">
                 Kirim Data ke Google Sheet
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
@@ -417,7 +432,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Grid Statistic Cards (16 Indicators) */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+          <h3 className="text-sm font-bold text-[#163A5F] dark:text-slate-100 uppercase tracking-wider">
             Indikator Ringkasan Harian (Real-Time)
           </h3>
           <span className="text-xs text-slate-500">Auto-update from Database</span>
@@ -430,21 +445,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div
                 key={idx}
                 onClick={() => onNavigateTab(s.tab)}
-                className="group cursor-pointer rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-sm hover:border-teal-500 dark:hover:border-teal-500 hover:shadow-md transition"
+                className="group cursor-pointer rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-2xs hover:border-[#2563EB] hover:bg-[#EFF6FF]/20 dark:hover:border-blue-500 hover:shadow-xs transition"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 line-clamp-1">
                     {s.label}
                   </span>
-                  <div className={`flex h-6 w-6 items-center justify-center rounded-lg ${s.color} text-white`}>
+                  <div className={`flex h-6 w-6 items-center justify-center rounded-lg ${s.color}`}>
                     <Icon className="h-3.5 w-3.5" />
                   </div>
                 </div>
                 <div className="mt-2 flex items-baseline justify-between">
-                  <span className="text-lg font-black text-slate-900 dark:text-white">
+                  <span className="text-lg font-black text-[#163A5F] dark:text-white">
                     {s.value}
                   </span>
-                  <span className="text-[9px] text-teal-600 dark:text-teal-400 opacity-0 group-hover:opacity-100 transition">
+                  <span className="text-[9px] text-[#2563EB] dark:text-blue-400 opacity-0 group-hover:opacity-100 transition">
                     Lihat →
                   </span>
                 </div>
@@ -455,11 +470,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* DASHBOARD WIDGET: Search & Filter Bar for Agenda Lookup */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Search className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            <h3 className="text-sm font-bold text-[#163A5F] dark:text-white flex items-center gap-2">
+              <Search className="h-4 w-4 text-[#2563EB] dark:text-blue-400" />
               <span>Pencarian & Filter Agenda Pembelajaran</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -471,13 +486,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {activeFiltersCount > 0 && (
               <button
                 onClick={handleResetFilters}
-                className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 hover:underline font-semibold"
+                className="flex items-center gap-1 text-xs text-[#DC2626] dark:text-red-400 hover:underline font-semibold cursor-pointer"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 <span>Reset Filter ({activeFiltersCount})</span>
               </button>
             )}
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-mono">
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#EFF6FF] dark:bg-blue-950 text-[#163A5F] dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono">
               {filteredAgendas.length} / {safeAgendaGuruList.length} Item
             </span>
           </div>
@@ -493,12 +508,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari nama guru, kelas (contoh: XI APHP), mapel..."
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-10 pr-9 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-10 pr-9 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -510,7 +525,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <select
               value={selectedClassFilter}
               onChange={(e) => setSelectedClassFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer font-medium"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB] cursor-pointer font-medium"
             >
               <option value="all">🏫 Semua Kelas</option>
               {availableClasses.map(k => (
@@ -524,7 +539,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <select
               value={selectedTeacherFilter}
               onChange={(e) => setSelectedTeacherFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer font-medium"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB] cursor-pointer font-medium"
             >
               <option value="all">👨‍🏫 Semua Guru</option>
               {availableTeachers.map(g => (
@@ -538,7 +553,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <select
               value={selectedStatusFilter}
               onChange={(e) => setSelectedStatusFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer font-medium"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB] cursor-pointer font-medium"
             >
               <option value="all">📌 Status (Semua)</option>
               <option value="Hadir / Selesai">Hadir / Selesai</option>
@@ -553,7 +568,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <select
               value={selectedDateFilter}
               onChange={(e) => setSelectedDateFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer font-medium"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2563EB] cursor-pointer font-medium"
             >
               <option value="all">📅 Tanggal</option>
               <option value="today">Hari Ini</option>
@@ -572,40 +587,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </span>
           <button
             onClick={() => { setSelectedClassFilter('XI APHP'); setSearchQuery(''); }}
-            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition ${
+            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition cursor-pointer ${
               selectedClassFilter === 'XI APHP' 
-                ? 'bg-teal-600 text-white border-teal-600' 
-                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950'
+                ? 'bg-[#2563EB] text-white border-[#2563EB]' 
+                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-[#EFF6FF] hover:text-[#163A5F]'
             }`}
           >
             Kelas XI APHP
           </button>
           <button
             onClick={() => { setSelectedClassFilter('XII DKV 1'); setSearchQuery(''); }}
-            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition ${
+            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition cursor-pointer ${
               selectedClassFilter === 'XII DKV 1' 
-                ? 'bg-teal-600 text-white border-teal-600' 
-                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950'
+                ? 'bg-[#2563EB] text-white border-[#2563EB]' 
+                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-[#EFF6FF] hover:text-[#163A5F]'
             }`}
           >
             Kelas XII DKV 1
           </button>
           <button
             onClick={() => { setSelectedClassFilter('X DKV 2'); setSearchQuery(''); }}
-            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition ${
+            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition cursor-pointer ${
               selectedClassFilter === 'X DKV 2' 
-                ? 'bg-teal-600 text-white border-teal-600' 
-                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950'
+                ? 'bg-[#2563EB] text-white border-[#2563EB]' 
+                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-[#EFF6FF] hover:text-[#163A5F]'
             }`}
           >
             Kelas X DKV 2
           </button>
           <button
             onClick={() => { setSelectedDateFilter('today'); }}
-            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition ${
+            className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition cursor-pointer ${
               selectedDateFilter === 'today' 
-                ? 'bg-teal-600 text-white border-teal-600' 
-                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950'
+                ? 'bg-[#2563EB] text-white border-[#2563EB]' 
+                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-[#EFF6FF] hover:text-[#163A5F]'
             }`}
           >
             Hari Ini
@@ -624,7 +639,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </p>
             <button
               onClick={handleResetFilters}
-              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-500 transition"
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2563EB] text-white text-xs font-bold hover:bg-blue-700 transition cursor-pointer"
             >
               Reset Filter
             </button>
@@ -634,12 +649,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {filteredAgendas.map((item) => (
               <div
                 key={item.id}
-                className="group p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 hover:border-teal-500 dark:hover:border-teal-500 hover:shadow-md transition space-y-2 flex flex-col justify-between"
+                className="group p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-[#2563EB] hover:bg-[#EFF6FF]/20 hover:shadow-xs transition space-y-2 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-lg bg-teal-600 text-white text-[11px] font-bold">
+                      <span className="px-2 py-0.5 rounded-lg bg-[#163A5F] text-white text-[11px] font-bold">
                         {item.kelas}
                       </span>
                       <span className="text-[10px] text-slate-400 font-medium">
@@ -648,19 +663,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      item.statusPembelajaran === 'Hadir / Selesai' 
-                        ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                        : 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                      item.statusPembelajaran === 'Selesai' 
+                        ? 'bg-emerald-50 dark:bg-emerald-950 text-[#16A34A] dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                        : 'bg-amber-50 dark:bg-amber-950 text-[#F59E0B] dark:text-amber-300 border-amber-300 dark:border-amber-800'
                     }`}>
                       {item.statusPembelajaran || 'Hadir'}
                     </span>
                   </div>
 
                   <div className="mt-2">
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition">
+                    <h4 className="text-xs font-bold text-[#163A5F] dark:text-white line-clamp-1 group-hover:text-[#2563EB] transition">
                       {item.namaGuru}
                     </h4>
-                    <p className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 line-clamp-1">
+                    <p className="text-[11px] font-semibold text-[#2563EB] dark:text-blue-300 line-clamp-1">
                       {item.mapel}
                     </p>
                     <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 italic">
@@ -672,11 +687,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[10px]">
                   <div className="flex items-center gap-2 text-slate-500">
                     <span className="flex items-center gap-1">
-                      <UserCheck className="h-3 w-3 text-emerald-600" />
+                      <UserCheck className="h-3 w-3 text-[#16A34A]" />
                       <span>{item.hadir || 0} Hadir</span>
                     </span>
                     {(item.fotoUrls?.length || 0) > 0 && (
-                      <span className="flex items-center gap-1 text-teal-600">
+                      <span className="flex items-center gap-1 text-[#2563EB]">
                         <Camera className="h-3 w-3" />
                         <span>{item.fotoUrls?.length} Foto</span>
                       </span>
@@ -685,7 +700,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                   <button
                     onClick={() => setSelectedAgendaModal(item)}
-                    className="flex items-center gap-1 text-teal-600 dark:text-teal-400 font-bold hover:underline"
+                    className="flex items-center gap-1 text-[#2563EB] dark:text-blue-400 font-bold hover:underline cursor-pointer"
                   >
                     <Eye className="h-3 w-3" />
                     <span>Detail</span>
@@ -700,10 +715,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Analytics Charts & Graphs Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart 1: Student Attendance Distribution */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Activity className="h-4 w-4 text-teal-600" />
+            <h4 className="text-sm font-bold text-[#163A5F] dark:text-white flex items-center gap-2">
+              <Activity className="h-4 w-4 text-[#2563EB]" />
               <span>Kehadiran Peserta Didik</span>
             </h4>
             <span className="text-xs text-slate-500">Hari Ini</span>
@@ -713,50 +728,50 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-slate-600 dark:text-slate-300 font-medium">Hadir ({totalSiswaHadir})</span>
-                <span className="font-bold text-teal-600">91.6%</span>
+                <span className="font-bold text-[#16A34A]">91.6%</span>
               </div>
               <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div className="h-full bg-teal-500 rounded-full" style={{ width: '91.6%' }} />
+                <div className="h-full bg-[#16A34A] rounded-full" style={{ width: '91.6%' }} />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-slate-600 dark:text-slate-300 font-medium">Sakit ({totalSiswaSakit})</span>
-                <span className="font-bold text-amber-500">2.8%</span>
+                <span className="font-bold text-[#F59E0B]">2.8%</span>
               </div>
               <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div className="h-full bg-amber-500 rounded-full" style={{ width: '2.8%' }} />
+                <div className="h-full bg-[#F59E0B] rounded-full" style={{ width: '2.8%' }} />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-slate-600 dark:text-slate-300 font-medium">Izin ({totalSiswaIzin})</span>
-                <span className="font-bold text-sky-500">2.8%</span>
+                <span className="font-bold text-[#2563EB]">2.8%</span>
               </div>
               <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div className="h-full bg-sky-500 rounded-full" style={{ width: '2.8%' }} />
+                <div className="h-full bg-[#2563EB] rounded-full" style={{ width: '2.8%' }} />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-slate-600 dark:text-slate-300 font-medium">Alpa ({totalSiswaAlpa})</span>
-                <span className="font-bold text-rose-500">2.8%</span>
+                <span className="font-bold text-[#DC2626]">2.8%</span>
               </div>
               <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div className="h-full bg-rose-500 rounded-full" style={{ width: '2.8%' }} />
+                <div className="h-full bg-[#DC2626] rounded-full" style={{ width: '2.8%' }} />
               </div>
             </div>
           </div>
         </div>
 
         {/* Chart 2: Status Pembelajaran & Monitoring */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <h4 className="text-sm font-bold text-[#163A5F] dark:text-white flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-[#16A34A]" />
               <span>Monitoring Pembelajaran</span>
             </h4>
             <span className="text-xs text-slate-500">Agendas</span>
@@ -765,7 +780,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-slate-700 dark:text-slate-300">Target Pertemuan Selesai</span>
-              <span className="font-bold text-emerald-600">85%</span>
+              <span className="font-bold text-[#16A34A]">85%</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-slate-700 dark:text-slate-300">Moda Luring (Tatap Muka)</span>
@@ -773,25 +788,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-slate-700 dark:text-slate-300">Tugas Praktik Diberikan</span>
-              <span className="font-bold text-teal-600">{totalTugas} Modul</span>
+              <span className="font-bold text-[#2563EB]">{totalTugas} Modul</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-slate-700 dark:text-slate-300">Supervisi Disetujui</span>
-              <span className="font-bold text-indigo-600">{totalSupervisi} Guru</span>
+              <span className="font-bold text-[#163A5F] dark:text-blue-300">{totalSupervisi} Guru</span>
             </div>
           </div>
         </div>
 
         {/* Recent Activity Feed */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-3">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-teal-600" />
+            <h4 className="text-sm font-bold text-[#163A5F] dark:text-white flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-[#2563EB]" />
               <span>Aktivitas Terbaru</span>
             </h4>
             <button 
               onClick={() => onNavigateTab('agenda_guru')}
-              className="text-xs text-teal-600 dark:text-teal-400 font-semibold hover:underline"
+              className="text-xs text-[#2563EB] dark:text-blue-400 font-semibold hover:underline cursor-pointer"
             >
               Semua →
             </button>
@@ -800,7 +815,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1">
             {agendaGuruList.slice(0, 4).map((ag) => (
               <div key={ag.id} className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-xs flex items-start gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-bold shrink-0">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EFF6FF] dark:bg-blue-950/60 text-[#163A5F] dark:text-blue-300 font-bold shrink-0">
                   {ag.kelas.slice(0, 2)}
                 </div>
                 <div className="flex-1">
@@ -808,7 +823,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <p className="text-slate-600 dark:text-slate-300 text-[11px] line-clamp-1">{ag.mapel} - {ag.materi}</p>
                   <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
                     <span>{ag.kelas} • JP {ag.jamKe}</span>
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">{ag.statusPembelajaran}</span>
+                    <span className="font-semibold text-[#16A34A] dark:text-emerald-400">{ag.statusPembelajaran}</span>
                   </div>
                 </div>
               </div>
@@ -819,11 +834,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Modal Detail Agenda from Search Results */}
       {selectedAgendaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-fadeIn">
           <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-teal-600 text-white text-xs font-bold">
+                <span className="px-2.5 py-1 rounded-lg bg-[#163A5F] text-white text-xs font-bold">
                   {selectedAgendaModal.kelas}
                 </span>
                 <span className="text-xs font-bold text-slate-500">
@@ -832,7 +847,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
               <button
                 onClick={() => setSelectedAgendaModal(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -840,7 +855,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             <div className="space-y-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base font-bold text-[#163A5F] dark:text-white">
                   {selectedAgendaModal.namaGuru}
                 </h3>
                 {selectedAgendaModal.nip && (
@@ -853,7 +868,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 space-y-1.5 text-xs">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Mata Pelajaran:</span>
-                  <span className="font-bold text-teal-600 dark:text-teal-400">{selectedAgendaModal.mapel}</span>
+                  <span className="font-bold text-[#2563EB] dark:text-blue-400">{selectedAgendaModal.mapel}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Tanggal Pertemuan:</span>
@@ -861,7 +876,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Status Pembelajaran:</span>
-                  <span className="font-bold text-emerald-600">{selectedAgendaModal.statusPembelajaran}</span>
+                  <span className="font-bold text-[#16A34A]">{selectedAgendaModal.statusPembelajaran}</span>
                 </div>
               </div>
 
@@ -892,24 +907,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </label>
                 <div className="grid grid-cols-5 gap-2 text-center text-xs">
                   <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800">
-                    <span className="block text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">Hadir</span>
+                    <span className="block text-[10px] text-[#16A34A] dark:text-emerald-300 font-bold">Hadir</span>
                     <span className="text-sm font-black text-emerald-800 dark:text-emerald-200">{selectedAgendaModal.hadir || 0}</span>
                   </div>
                   <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
-                    <span className="block text-[10px] text-amber-700 dark:text-amber-300 font-bold">Sakit</span>
+                    <span className="block text-[10px] text-[#F59E0B] dark:text-amber-300 font-bold">Sakit</span>
                     <span className="text-sm font-black text-amber-800 dark:text-amber-200">{selectedAgendaModal.sakit || 0}</span>
                   </div>
-                  <div className="p-2 rounded-lg bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-800">
-                    <span className="block text-[10px] text-sky-700 dark:text-sky-300 font-bold">Izin</span>
-                    <span className="text-sm font-black text-sky-800 dark:text-sky-200">{selectedAgendaModal.izin || 0}</span>
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                    <span className="block text-[10px] text-[#2563EB] dark:text-blue-300 font-bold">Izin</span>
+                    <span className="text-sm font-black text-blue-800 dark:text-blue-200">{selectedAgendaModal.izin || 0}</span>
                   </div>
-                  <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800">
-                    <span className="block text-[10px] text-rose-700 dark:text-rose-300 font-bold">Alpa</span>
-                    <span className="text-sm font-black text-rose-800 dark:text-rose-200">{selectedAgendaModal.alpa || 0}</span>
+                  <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800">
+                    <span className="block text-[10px] text-[#DC2626] dark:text-red-300 font-bold">Alpa</span>
+                    <span className="text-sm font-black text-red-800 dark:text-red-200">{selectedAgendaModal.alpa || 0}</span>
                   </div>
-                  <div className="p-2 rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
-                    <span className="block text-[10px] text-orange-700 dark:text-orange-300 font-bold">Terlambat</span>
-                    <span className="text-sm font-black text-orange-800 dark:text-orange-200">{selectedAgendaModal.terlambat || 0}</span>
+                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
+                    <span className="block text-[10px] text-[#F59E0B] dark:text-amber-300 font-bold">Terlambat</span>
+                    <span className="text-sm font-black text-amber-800 dark:text-amber-200">{selectedAgendaModal.terlambat || 0}</span>
                   </div>
                 </div>
               </div>
@@ -918,7 +933,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <button
                 onClick={() => setSelectedAgendaModal(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
               >
                 Tutup
               </button>
@@ -927,7 +942,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   setSelectedAgendaModal(null);
                   onNavigateTab('agenda_guru');
                 }}
-                className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-500 transition flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-[#2563EB] text-white text-xs font-bold hover:bg-blue-700 transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>Buka di Agenda Guru</span>
                 <ChevronRight className="h-4 w-4" />

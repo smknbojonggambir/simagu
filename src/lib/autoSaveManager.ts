@@ -1,4 +1,4 @@
-import { Storage } from './storage';
+import { Storage, safeLocalStorage } from './storage';
 import { syncViaAppsScriptWebApp } from './googleSheetsSync';
 
 export interface AutoSaveConfig {
@@ -15,7 +15,7 @@ const AUTOSAVE_SNAPSHOT_KEY = 'simagu_autosave_snapshot';
 const DEFAULT_CONFIG: AutoSaveConfig = {
   enabled: true,
   intervalSeconds: 30,
-  syncToCloud: true,
+  syncToCloud: false, // Default to local only unless user explicitly connects cloud sync
   lastSavedAt: null,
   lastCloudSyncedAt: null,
 };
@@ -25,12 +25,12 @@ let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 export const AutoSaveManager = {
   getConfig: (): AutoSaveConfig => {
     try {
-      const saved = localStorage.getItem(AUTOSAVE_CONFIG_KEY);
+      const saved = safeLocalStorage.getItem(AUTOSAVE_CONFIG_KEY);
       if (saved) {
         return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
       }
     } catch (err) {
-      console.error('Failed to parse autosave config:', err);
+      console.warn('Failed to parse autosave config:', err);
     }
     return DEFAULT_CONFIG;
   },
@@ -39,9 +39,9 @@ export const AutoSaveManager = {
     const current = AutoSaveManager.getConfig();
     const updated = { ...current, ...config };
     try {
-      localStorage.setItem(AUTOSAVE_CONFIG_KEY, JSON.stringify(updated));
+      safeLocalStorage.setItem(AUTOSAVE_CONFIG_KEY, JSON.stringify(updated));
     } catch (err) {
-      console.error('Failed to save autosave config:', err);
+      console.warn('Failed to save autosave config:', err);
     }
     return updated;
   },
@@ -127,13 +127,13 @@ export const AutoSaveManager = {
           nilaiSiswa: nilaiSiswa.length,
         },
       };
-      localStorage.setItem(AUTOSAVE_SNAPSHOT_KEY, JSON.stringify(snapshot));
+      safeLocalStorage.setItem(AUTOSAVE_SNAPSHOT_KEY, JSON.stringify(snapshot));
 
       // 3. Automatic Cloud Auto-Sync to Google Sheets / Apps Script Web App
       let cloudSynced = false;
       const config = AutoSaveManager.getConfig();
       const defaultScriptUrl = 'https://script.google.com/macros/s/AKfycbwdP4xyVpfseBeDt2TrzyrNUQYhOuxX2638CDPs0XcisGGZNga0Ix4PgxGhSPv4aCj9/exec';
-      const scriptUrl = setting.appsScriptUrl || localStorage.getItem('simagu_sheets_script_url') || defaultScriptUrl;
+      const scriptUrl = setting.appsScriptUrl || safeLocalStorage.getItem('simagu_sheets_script_url') || defaultScriptUrl;
 
       if (config.syncToCloud && scriptUrl) {
         try {
@@ -170,7 +170,7 @@ export const AutoSaveManager = {
 
   getSnapshotInfo: () => {
     try {
-      const saved = localStorage.getItem(AUTOSAVE_SNAPSHOT_KEY);
+      const saved = safeLocalStorage.getItem(AUTOSAVE_SNAPSHOT_KEY);
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;

@@ -1,5 +1,91 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   PROFESSIONAL SCHOOL NAVY THEME DESIGN SYSTEM (SIMAGU)
+   Sidebar:    #163A5F Navy
+   Header:     #FFFFFF White (Border: #E5E7EB)
+   Background: #F5F7FA Soft Gray
+   Primary:    #2563EB Blue
+   Card:       #FFFFFF White (Radius: 12px, Shadow: 0 2px 8px rgba(15, 23, 42, 0.06))
+   Heading:    #163A5F Navy
+   Success:    #16A34A Green
+   Warning:    #F59E0B Amber
+   Danger:     #DC2626 Red
+   Icon:       #2563EB / #163A5F
+   Hover:      #EFF6FF Light Blue
+   ========================================================================== */
+
+:root {
+  --color-navy: #163A5F;
+  --color-header: #FFFFFF;
+  --color-bg-soft: #F5F7FA;
+  --color-primary: #2563EB;
+  --color-card: #FFFFFF;
+  --color-heading: #163A5F;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-hover: #EFF6FF;
+}
+
+/* Custom Helper Utilities for Theme */
+.bg-navy-main {
+  background-color: #163A5F;
+}
+
+.text-navy-main {
+  color: #163A5F;
+}
+
+.border-navy-main {
+  border-color: #163A5F;
+}
+
+.bg-soft-gray {
+  background-color: #F5F7FA;
+}
+
+.bg-hover-light-blue:hover {
+  background-color: #EFF6FF;
+}
+
+.card-navy-theme {
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease;
+}
+
+/* Tables Styling Following Design System */
+.table-navy-header {
+  background-color: #F8FAFC !important;
+  color: #163A5F !important;
+  font-weight: 700;
+}
+
+.table-navy-row {
+  background-color: #FFFFFF;
+  transition: background-color 0.2s ease;
+}
+
+.table-navy-row:hover {
+  background-color: #EFF6FF !important;
+}
+
+/* Inputs & Form Controls Focus State */
+.input-navy-theme {
+  background-color: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #172033;
+  transition: all 0.2s ease;
+}
+
+.input-navy-theme:focus {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+
 @media print {
   /* Page setup - Standard A4 */
   @page {

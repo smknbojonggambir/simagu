@@ -3,6 +3,7 @@ import {
   Plus, 
   Search, 
   Filter, 
+  Calendar,
   Printer, 
   FileSpreadsheet, 
   Users, 
@@ -30,6 +31,9 @@ import { exportAgendaKelasToExcel } from '../../lib/excelExport';
 import { Storage } from '../../lib/storage';
 import { DigitalSignaturePad } from '../DigitalSignaturePad';
 import { ProofUploader } from '../ProofUploader';
+import { showAlert } from '../../lib/alerts';
+import { toast } from 'sonner';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
 interface AgendaKelasViewProps {
   agendas: AgendaKelasItem[];
@@ -50,9 +54,11 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedKelasFilter, setSelectedKelasFilter] = useState('');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('');
   const [selectedAgenda, setSelectedAgenda] = useState<AgendaKelasItem | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const handleEditAgenda = (ak: AgendaKelasItem) => {
     setFormData(ak);
@@ -60,10 +66,13 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
     setShowFormModal(true);
   };
 
-  const handleDeleteAgenda = (id: string) => {
-    Storage.deleteAgendaKelas(id);
-    if (selectedAgenda?.id === id) setSelectedAgenda(null);
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    Storage.deleteAgendaKelas(deleteTarget.id);
+    if (selectedAgenda?.id === deleteTarget.id) setSelectedAgenda(null);
     onRefresh();
+    toast.success('Data berhasil dihapus');
+    setDeleteTarget(null);
   };
 
   // Helper to get integrated attendance data from AgendaGuru or AbsensiSiswa
@@ -155,7 +164,7 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
   }, []);
 
   const firstKelas = kelasList[0];
-  const initialKelasName = firstKelas?.namaKelas || 'XI RPL 1';
+  const initialKelasName = firstKelas?.namaKelas || 'X DKV 1';
   const initialDateStr = new Date().toISOString().slice(0, 10);
   const getDayName = (dateStr?: string): string => {
     if (!dateStr) return 'Senin';
@@ -229,11 +238,19 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
   }, [showFormModal, formData.kelas, formData.tanggal, getAttendanceFromAgendaGuruOrAbsensi]);
 
   const safeAgendas = agendas || [];
+  const availableDates = React.useMemo(() => {
+    return Array.from(new Set(safeAgendas.map(a => a.tanggal).filter(Boolean))).sort().reverse();
+  }, [safeAgendas]);
+
   const filteredAgendas = safeAgendas.filter(a => {
     const matchSearch = a.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        a.waliKelas.toLowerCase().includes(searchTerm.toLowerCase());
+                        a.waliKelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (a.ketuaKelas && a.ketuaKelas.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (a.tanggal && a.tanggal.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (a.hari && a.hari.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchKelas = selectedKelasFilter ? a.kelas === selectedKelasFilter : true;
-    return matchSearch && matchKelas;
+    const matchDate = selectedDateFilter ? a.tanggal === selectedDateFilter : true;
+    return matchSearch && matchKelas && matchDate;
   });
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -241,7 +258,7 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
     setIsSubmitting(true);
 
     try {
-      const curKelas = formData.kelas || kelasList[0]?.namaKelas || 'XI RPL 1';
+      const curKelas = formData.kelas || kelasList[0]?.namaKelas || 'X DKV 1';
       const curTanggal = formData.tanggal || new Date().toISOString().slice(0, 10);
       const att = getAttendanceFromAgendaGuruOrAbsensi(curKelas, curTanggal);
 
@@ -267,6 +284,7 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
         setEditingId(null);
         setShowFormModal(false);
         onRefresh();
+        showAlert.success('Agenda Kelas Diperbarui!', `Perubahan agenda kelas ${updatedItem.kelas} berhasil disimpan.`);
         setIsSubmitting(false);
         return;
       }
@@ -291,6 +309,7 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
       setSelectedAgenda(newItem);
       setShowFormModal(false);
       onRefresh();
+      showAlert.success('Agenda Kelas Tersimpan!', `Agenda kelas ${newItem.kelas} berhasil disimpan.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -301,8 +320,8 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
       {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="h-6 w-6 text-teal-600" />
+          <h2 className="text-xl font-bold text-[#163A5F] dark:text-white flex items-center gap-2">
+            <Users className="h-6 w-6 text-[#2563EB]" />
             <span>Agenda Harian Kelas (Format Lengkap A-L)</span>
           </h2>
           <p className="text-xs text-slate-500">
@@ -314,18 +333,18 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
           {onOpenGoogleSheetsModal && (
             <button
               onClick={onOpenGoogleSheetsModal}
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition shadow-2xs"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 px-3.5 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
             >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <FileSpreadsheet className="h-4 w-4 text-[#16A34A] dark:text-emerald-400" />
               <span>Kirim ke Google Sheet</span>
             </button>
           )}
 
           <button
             onClick={() => exportAgendaKelasToExcel(agendas)}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-[#EFF6FF] hover:text-[#163A5F] transition cursor-pointer"
           >
-            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+            <FileSpreadsheet className="h-4 w-4 text-[#16A34A]" />
             <span>Export Excel</span>
           </button>
 
@@ -338,7 +357,7 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
               });
               setShowFormModal(true);
             }}
-            className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-teal-700 transition"
+            className="flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Isi Agenda Kelas Hari Ini</span>
@@ -347,7 +366,7 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
       </div>
 
       {/* Filter */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
@@ -355,22 +374,40 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
             placeholder="Cari kelas, wali kelas..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="h-4 w-4 text-slate-400" />
-          <select
-            value={selectedKelasFilter}
-            onChange={(e) => setSelectedKelasFilter(e.target.value)}
-            className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="">Semua Kelas</option>
-            {kelasList.map(k => (
-              <option key={k.id} value={k.namaKelas}>{k.namaKelas}</option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-4 w-4 text-[#2563EB]" />
+            <select
+              value={selectedDateFilter}
+              onChange={(e) => setSelectedDateFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#2563EB] cursor-pointer font-medium"
+            >
+              <option value="">Semua Tanggal</option>
+              {availableDates.map(d => (
+                <option key={d} value={d}>
+                  {d === '2026-09-07' ? '7 Sept 2026 (Aktif Hari Ini)' : d}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <Filter className="h-4 w-4 text-[#2563EB]" />
+            <select
+              value={selectedKelasFilter}
+              onChange={(e) => setSelectedKelasFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#2563EB] cursor-pointer font-medium"
+            >
+              <option value="">Semua Kelas</option>
+              {kelasList.map(k => (
+                <option key={k.id} value={k.namaKelas}>{k.namaKelas}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -379,20 +416,20 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
         {filteredAgendas.map((ak) => (
           <div
             key={ak.id}
-            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm hover:border-teal-500 transition space-y-3"
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-2xs hover:border-[#2563EB] hover:bg-[#EFF6FF]/10 transition space-y-3"
           >
             <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
               <div>
-                <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-wider block">
+                <span className="text-[10px] font-bold text-[#2563EB] dark:text-blue-400 uppercase tracking-wider block">
                   {ak.nomorAgenda}
                 </span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {ak.kelas} ({ak.jurusan.split('(')[1]?.replace(')','') || 'RPL'})
+                <h3 className="text-base font-bold text-[#163A5F] dark:text-white">
+                  {ak.kelas} ({ak.jurusan.split('(')[1]?.replace(')','') || 'DKV'})
                 </h3>
                 <p className="text-xs text-slate-500">Wali Kelas: {ak.waliKelas}</p>
               </div>
 
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-[#16A34A] border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300">
                 <CheckCircle className="h-3 w-3" />
                 <span>Terverifikasi Wali</span>
               </span>
@@ -405,46 +442,46 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
             </div>
 
             {/* Attendance Bar */}
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-2.5 flex items-center justify-between text-xs">
+            <div className="rounded-lg bg-[#F5F7FA] dark:bg-slate-800/60 p-2.5 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 text-[11px]">
-                <span className="text-emerald-600 font-bold">Hadir: {ak.hadir}</span>
-                <span className="text-amber-500">Sakit: {ak.sakit}</span>
-                <span className="text-sky-500">Izin: {ak.izin}</span>
-                <span className="text-rose-500 font-bold">Alpa: {ak.alpa}</span>
+                <span className="text-[#16A34A] font-bold">Hadir: {ak.hadir}</span>
+                <span className="text-[#F59E0B] font-medium">Sakit: {ak.sakit}</span>
+                <span className="text-[#2563EB] font-medium">Izin: {ak.izin}</span>
+                <span className="text-[#DC2626] font-bold">Alpa: {ak.alpa}</span>
               </div>
-              <span className="text-xs font-black text-teal-600">{ak.persentase}%</span>
+              <span className="text-xs font-black text-[#163A5F] dark:text-white">{ak.persentase}%</span>
             </div>
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => setSelectedAgenda(ak)}
-                className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-[#EFF6FF] hover:text-[#163A5F] hover:border-blue-200 transition cursor-pointer"
               >
-                <Eye className="h-3.5 w-3.5 text-teal-600" />
+                <Eye className="h-3.5 w-3.5 text-[#2563EB]" />
                 <span>Detail</span>
               </button>
 
               <button
                 onClick={() => handleEditAgenda(ak)}
-                className="flex items-center gap-1 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200 px-2.5 py-1.5 text-xs font-semibold hover:bg-amber-100 transition"
+                className="flex items-center gap-1 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-[#F59E0B] dark:text-amber-200 px-2.5 py-1.5 text-xs font-semibold hover:bg-amber-100 transition cursor-pointer"
                 title="Edit Agenda Kelas"
               >
-                <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                <Pencil className="h-3.5 w-3.5" />
                 <span>Edit</span>
               </button>
 
               <button
-                onClick={() => handleDeleteAgenda(ak.id)}
-                className="flex items-center gap-1 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 px-2 py-1.5 text-xs font-semibold hover:bg-rose-100 transition"
+                onClick={() => setDeleteTarget({ id: ak.id, name: `${ak.hari}, ${ak.tanggal} • Kelas ${ak.kelas} (No. Agenda: ${ak.nomorAgenda})` })}
+                className="flex items-center gap-1 rounded-lg border border-red-200 dark:border-rose-900 bg-red-50 dark:bg-rose-950/50 text-[#DC2626] dark:text-rose-300 px-2 py-1.5 text-xs font-semibold hover:bg-red-100 transition cursor-pointer"
                 title="Hapus Agenda Kelas"
               >
-                <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                <Trash2 className="h-3.5 w-3.5 text-[#DC2626]" />
               </button>
 
               <button
                 onClick={() => generateAgendaKelasPDF(ak, setting)}
-                className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700 transition"
+                className="flex items-center gap-1 rounded-lg bg-[#163A5F] hover:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white transition cursor-pointer"
               >
                 <Printer className="h-3.5 w-3.5" />
                 <span>Cetak PDF</span>
@@ -456,59 +493,59 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
 
       {/* Modal Detail Agenda Kelas (A-L) */}
       {selectedAgenda && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative w-full max-w-3xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-5 my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-3xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-5 my-8 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div>
-                <span className="text-xs font-bold text-teal-600 uppercase tracking-wide">
+                <span className="text-xs font-bold text-[#2563EB] uppercase tracking-wide">
                   {selectedAgenda.nomorAgenda}
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h3 className="text-lg font-bold text-[#163A5F] dark:text-white">
                   Detail Agenda Harian Kelas {selectedAgenda.kelas}
                 </h3>
               </div>
-              <button onClick={() => setSelectedAgenda(null)} className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+              <button onClick={() => setSelectedAgenda(null)} className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 text-xs text-slate-700 dark:text-slate-300">
               {/* Identitas A & C */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px]">A. Identitas Kelas & Kehadiran</h4>
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px]">A. Identitas Kelas & Kehadiran</h4>
                 <p><b>Hari / Tanggal:</b> {selectedAgenda.hari}, {selectedAgenda.tanggal}</p>
                 <p><b>Wali Kelas:</b> {selectedAgenda.waliKelas} | <b>Ketua Kelas:</b> {selectedAgenda.ketuaKelas}</p>
                 <p><b>Kehadiran:</b> Hadir {selectedAgenda.hadir} dari {selectedAgenda.jumlahSiswa} Siswa ({selectedAgenda.persentase}%)</p>
               </div>
 
               {/* Monitoring E */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px]">E. Monitoring Pembelajaran per JP</h4>
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px]">E. Monitoring Pembelajaran per JP</h4>
                 <div className="space-y-1.5">
                   {selectedAgenda.monitoringPembelajaran.map((m, i) => (
                     <div key={i} className="p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                      <span className="font-bold text-teal-600">JP {m.jp} ({m.mapel}):</span> {m.materi} (Guru: {m.guru}) - <b className="text-emerald-600">{m.status}</b>
+                      <span className="font-bold text-[#2563EB]">JP {m.jp} ({m.mapel}):</span> {m.materi} (Guru: {m.guru}) - <b className="text-[#16A34A]">{m.status}</b>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Rutinitas F */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px]">F. Agenda Rutin Harian Kelas</h4>
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px]">F. Agenda Rutin Harian Kelas</h4>
                 <div className="grid grid-cols-2 gap-2">
                   {selectedAgenda.agendaRoutine.map((r, i) => (
-                    <div key={i} className="flex justify-between p-1.5 rounded bg-white dark:bg-slate-800 text-[11px]">
+                    <div key={i} className="flex justify-between p-1.5 rounded bg-white dark:bg-slate-800 text-[11px] border border-slate-200/40">
                       <span><b>{r.waktu}</b> {r.kegiatan}</span>
-                      <span className="text-emerald-600 font-semibold">{r.status}</span>
+                      <span className="text-[#16A34A] font-semibold">{r.status}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Catatan L */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px]">L. Catatan Wali Kelas</h4>
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px]">L. Catatan Wali Kelas</h4>
                 <p><b>Kondisi Umum:</b> {selectedAgenda.catatanWaliKelas.kondisiUmum}</p>
                 <p><b>Siswa Bermasalah:</b> {selectedAgenda.catatanWaliKelas.siswaBermasalah || '-'}</p>
                 <p><b>Siswa Berprestasi:</b> {selectedAgenda.catatanWaliKelas.siswaBerprestasi || '-'}</p>
@@ -516,9 +553,9 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
               </div>
 
               {/* Bukti Foto Selfie Suasana Kelas & Dokumen / Drive Link */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-3">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px] flex items-center gap-1.5">
-                  <Camera className="h-4 w-4 text-teal-600" />
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-3 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px] flex items-center gap-1.5">
+                  <Camera className="h-4 w-4 text-[#2563EB]" />
                   <span>Bukti Suasana Kelas & Dokumen Pendukung</span>
                 </h4>
 
@@ -540,7 +577,7 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
                       href={selectedAgenda.driveFolderLink}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs"
                     >
                       <LinkIcon className="h-3.5 w-3.5" />
                       <span>Buka Google Drive Kelas</span>
@@ -553,7 +590,7 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
                       href={selectedAgenda.dokumenUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-teal-600 text-teal-700 dark:text-teal-300 px-3 py-1.5 text-xs font-bold hover:bg-teal-50 dark:hover:bg-teal-950/40"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#2563EB] text-[#2563EB] dark:text-blue-300 px-3 py-1.5 text-xs font-bold hover:bg-[#EFF6FF] dark:hover:bg-blue-950/40"
                     >
                       <FileText className="h-3.5 w-3.5" />
                       <span>Dokumen Pendukung</span>
@@ -563,16 +600,16 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
               </div>
 
               {/* Tanda Tangan Digital Wali Kelas */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px] flex items-center gap-1.5">
-                  <PenTool className="h-4 w-4 text-teal-600" />
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px] flex items-center gap-1.5">
+                  <PenTool className="h-4 w-4 text-[#2563EB]" />
                   <span>Validasi Tanda Tangan Digital Wali Kelas</span>
                 </h4>
 
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
                   <div className="text-center sm:text-left space-y-1">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold">Wali Kelas</span>
-                    <p className="font-bold text-slate-900 dark:text-white">{selectedAgenda.waliKelas}</p>
+                    <p className="font-bold text-[#163A5F] dark:text-white">{selectedAgenda.waliKelas}</p>
                     <p className="text-[11px] text-slate-500">Kelas {selectedAgenda.kelas}</p>
                   </div>
 
@@ -588,9 +625,9 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
                         </div>
                       )
                     ) : (
-                      <span className="text-emerald-600 font-bold text-xs">Verified by Wali Kelas</span>
+                      <span className="text-[#16A34A] font-bold text-xs">Verified by Wali Kelas</span>
                     )}
-                    <span className="text-[9px] text-teal-600 font-semibold mt-1 flex items-center gap-1">
+                    <span className="text-[9px] text-[#16A34A] font-semibold mt-1 flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" /> Digital Signature Verified
                     </span>
                   </div>
@@ -603,14 +640,14 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
               <div className="flex gap-2">
                 <button
                   onClick={() => generateAgendaKelasPDF(selectedAgenda, setting)}
-                  className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700 transition"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition cursor-pointer"
                 >
                   <Printer className="h-4 w-4" />
                   <span>Cetak PDF</span>
                 </button>
                 <button
                   onClick={() => setSelectedAgenda(null)}
-                  className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-[#EFF6FF] hover:text-[#163A5F] dark:hover:bg-slate-800 cursor-pointer"
                 >
                   Tutup
                 </button>
@@ -622,14 +659,14 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
 
       {/* Form Modal Agenda Kelas Baru */}
       {showFormModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative w-full max-w-3xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-3xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl my-8 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Plus className="h-5 w-5 text-teal-600" />
+              <h3 className="text-base font-bold text-[#163A5F] dark:text-white flex items-center gap-2">
+                <Plus className="h-5 w-5 text-[#2563EB]" />
                 <span>Form Isian Agenda Harian Kelas (A-L)</span>
               </h3>
-              <button onClick={() => setShowFormModal(false)} className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+              <button onClick={() => setShowFormModal(false)} className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -826,8 +863,8 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
               </div>
 
               {/* Foto Selfie & Dokumen Pendukung Kelas */}
-              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2">
-                <h4 className="font-bold text-teal-700 dark:text-teal-400 uppercase text-xs">Foto Selfie Suasana Kelas & Dokumen / Tautan</h4>
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-[#F5F7FA] dark:bg-slate-800/40 space-y-2">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-xs">Foto Selfie Suasana Kelas & Dokumen / Tautan</h4>
                 
                 <ProofUploader
                   fotoUrls={formData.fotoUrls}
@@ -841,8 +878,8 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
               </div>
 
               {/* Tanda Tangan Digital Ketua / Wali Kelas */}
-              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2">
-                <h4 className="font-bold text-teal-700 dark:text-teal-400 uppercase text-xs">Tanda Tangan Digital Wali Kelas / Pengurus</h4>
+              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-[#F5F7FA] dark:bg-slate-800/40 space-y-2">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-xs">Tanda Tangan Digital Wali Kelas / Pengurus</h4>
                 
                 <DigitalSignaturePad
                   initialSignature={formData.ttdWaliKelas}
@@ -852,18 +889,18 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowFormModal(false)}
-                  className="rounded-xl border px-4 py-2 text-xs font-semibold"
+                  className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-[#EFF6FF] hover:text-[#163A5F] cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-5 py-2 text-xs font-bold text-white hover:bg-teal-700 shadow disabled:opacity-60 cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-sm disabled:opacity-60 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -882,6 +919,16 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        title="Konfirmasi Hapus Agenda Kelas"
+        message="Apakah Anda yakin ingin menghapus data ini?"
+        itemName={deleteTarget?.name}
+        itemType="Agenda Kelas"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 };

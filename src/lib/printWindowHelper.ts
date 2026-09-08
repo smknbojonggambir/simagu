@@ -7,12 +7,26 @@ export interface PrintReportOptions {
   subtitle?: string;
   nomorDokumen?: string;
   orientation?: 'portrait' | 'landscape';
+  paperSize?: 'a4' | 'f4';
+  margin?: 'normal' | 'compact';
+  showLogo?: boolean;
+  showKop?: boolean;
+  showSignatures?: boolean;
+  showPageNumbers?: boolean;
+  showPrintDate?: boolean;
+  showFilterInfo?: boolean;
+  summaryCards?: Array<{ label: string; value: string | number; color?: string }>;
   metadataGrid?: Array<{ label: string; value: string }>;
   headers: string[];
   rows: (string | number)[][];
   alignments?: ('left' | 'center' | 'right')[];
   columnWidths?: string[];
   signLeft?: {
+    role: string;
+    nama: string;
+    nip?: string;
+  };
+  signCenter?: {
     role: string;
     nama: string;
     nip?: string;
@@ -115,6 +129,79 @@ export function printHtmlReport(setting: SchoolSetting, options: PrintReportOpti
     return `<tr style="${bg} page-break-inside: avoid;">${cells}</tr>`;
   }).join('');
 
+  const showKop = options.showKop !== false;
+  const showSignatures = options.showSignatures !== false;
+  const showPrintDate = options.showPrintDate !== false;
+  const paperSizeCss = options.paperSize === 'f4' ? '215mm 330mm' : 'A4';
+  const marginCss = options.margin === 'compact' ? '8mm 10mm 10mm 10mm' : '12mm 15mm 15mm 15mm';
+
+  let summaryCardsHtml = '';
+  if (options.summaryCards && options.summaryCards.length > 0) {
+    summaryCardsHtml = `
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+        ${options.summaryCards.map(c => `
+          <div style="flex: 1; min-width: 110px; border: 1px solid #cbd5e1; background: #f8fafc; padding: 6px 10px; border-radius: 4px; text-align: center;">
+            <div style="font-size: 7.5pt; color: #64748b; font-weight: bold; text-transform: uppercase;">${c.label}</div>
+            <div style="font-size: 11pt; font-weight: bold; color: ${c.color || '#0f766e'}; margin-top: 2px;">${c.value}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  const signCenterRole = options.signCenter?.role;
+  const signCenterNama = options.signCenter?.nama;
+  const signCenterNip = options.signCenter?.nip;
+
+  let signaturesHtml = '';
+  if (showSignatures) {
+    if (signCenterRole && signCenterNama) {
+      // 3 Signatures Layout
+      signaturesHtml = `
+        <div class="ttd-section" style="margin-top: 22px; display: flex; justify-content: space-between; page-break-inside: avoid; font-size: 8.5pt;">
+          <div class="ttd-box" style="width: 30%; text-align: center;">
+            <p style="margin: 0;">${signLeftRole.replace(/\n/g, '<br/>')}</p>
+            <div class="ttd-space" style="height: 50px;"></div>
+            <p style="margin: 0; font-weight: bold; text-decoration: underline;">${signLeftNama}</p>
+            <p style="margin: 2px 0 0 0; font-size: 8pt;">NIP. ${signLeftNip}</p>
+          </div>
+          <div class="ttd-box" style="width: 30%; text-align: center;">
+            <p style="margin: 0;">${signCenterRole.replace(/\n/g, '<br/>')}</p>
+            <div class="ttd-space" style="height: 50px;"></div>
+            <p style="margin: 0; font-weight: bold; text-decoration: underline;">${signCenterNama}</p>
+            <p style="margin: 2px 0 0 0; font-size: 8pt;">NIP. ${signCenterNip || '-'}</p>
+          </div>
+          <div class="ttd-box" style="width: 30%; text-align: center;">
+            <p style="margin: 0;">${signRightLocationDate}</p>
+            <p style="margin: 0;">${signRightRole.replace(/\n/g, '<br/>')}</p>
+            <div class="ttd-space" style="height: 50px;"></div>
+            <p style="margin: 0; font-weight: bold; text-decoration: underline;">${signRightNama}</p>
+            <p style="margin: 2px 0 0 0; font-size: 8pt;">NIP. ${signRightNip}</p>
+          </div>
+        </div>
+      `;
+    } else {
+      // 2 Signatures Layout
+      signaturesHtml = `
+        <div class="ttd-section" style="margin-top: 25px; display: flex; justify-content: space-between; page-break-inside: avoid; font-size: 9pt;">
+          <div class="ttd-box" style="width: 45%; text-align: center;">
+            <p style="margin: 0;">${signLeftRole.replace(/\n/g, '<br/>')}</p>
+            <div class="ttd-space" style="height: 55px;"></div>
+            <p style="margin: 0; font-weight: bold; text-decoration: underline;">${signLeftNama}</p>
+            <p style="margin: 2px 0 0 0; font-size: 8.5pt;">NIP. ${signLeftNip}</p>
+          </div>
+          <div class="ttd-box" style="width: 45%; text-align: center;">
+            <p style="margin: 0;">${signRightLocationDate}</p>
+            <p style="margin: 0;">${signRightRole.replace(/\n/g, '<br/>')}</p>
+            <div class="ttd-space" style="height: 55px;"></div>
+            <p style="margin: 0; font-weight: bold; text-decoration: underline;">${signRightNama}</p>
+            <p style="margin: 2px 0 0 0; font-size: 8.5pt;">NIP. ${signRightNip}</p>
+          </div>
+        </div>
+      `;
+    }
+  }
+
   const htmlContent = `
     <!DOCTYPE html>
     <html lang="id">
@@ -123,8 +210,8 @@ export function printHtmlReport(setting: SchoolSetting, options: PrintReportOpti
       <title>${options.title} - ${setting.namaSekolah}</title>
       <style>
         @page {
-          size: A4 ${isLandscape ? 'landscape' : 'portrait'};
-          margin: 12mm 15mm 15mm 15mm;
+          size: ${paperSizeCss} ${isLandscape ? 'landscape' : 'portrait'};
+          margin: ${marginCss};
         }
         * {
           box-sizing: border-box;
@@ -167,22 +254,8 @@ export function printHtmlReport(setting: SchoolSetting, options: PrintReportOpti
         table.data-table tr {
           page-break-inside: avoid;
         }
-        .ttd-section {
-          margin-top: 25px;
-          display: flex;
-          justify-content: space-between;
-          page-break-inside: avoid;
-          font-size: 9pt;
-        }
-        .ttd-box {
-          width: 45%;
-          text-align: center;
-        }
-        .ttd-space {
-          height: 55px;
-        }
         .footer-note {
-          margin-top: 30px;
+          margin-top: 25px;
           padding-top: 6px;
           border-top: 1px solid #cbd5e1;
           display: flex;
@@ -206,7 +279,7 @@ export function printHtmlReport(setting: SchoolSetting, options: PrintReportOpti
       </div>
 
       <!-- Kop Surat Resmi -->
-      ${generateKopSuratHTML(setting)}
+      ${showKop ? generateKopSuratHTML(setting) : ''}
 
       <!-- Document Title -->
       <div class="header-title">
@@ -216,7 +289,10 @@ export function printHtmlReport(setting: SchoolSetting, options: PrintReportOpti
       </div>
 
       <!-- Metadata Info Grid if available -->
-      ${metadataHtml}
+      ${options.showFilterInfo !== false ? metadataHtml : ''}
+
+      <!-- Summary KPI Cards if available -->
+      ${summaryCardsHtml}
 
       <!-- Main Data Table -->
       <table class="data-table">
@@ -231,26 +307,12 @@ export function printHtmlReport(setting: SchoolSetting, options: PrintReportOpti
       </table>
 
       <!-- Signatures Section -->
-      <div class="ttd-section">
-        <div class="ttd-box">
-          <p style="margin: 0;">${signLeftRole.replace(/\n/g, '<br/>')}</p>
-          <div class="ttd-space"></div>
-          <p style="margin: 0; font-weight: bold; text-decoration: underline;">${signLeftNama}</p>
-          <p style="margin: 2px 0 0 0; font-size: 8.5pt;">NIP. ${signLeftNip}</p>
-        </div>
-        <div class="ttd-box">
-          <p style="margin: 0;">${signRightLocationDate}</p>
-          <p style="margin: 0;">${signRightRole.replace(/\n/g, '<br/>')}</p>
-          <div class="ttd-space"></div>
-          <p style="margin: 0; font-weight: bold; text-decoration: underline;">${signRightNama}</p>
-          <p style="margin: 2px 0 0 0; font-size: 8.5pt;">NIP. ${signRightNip}</p>
-        </div>
-      </div>
+      ${signaturesHtml}
 
       <!-- Official Footer -->
       <div class="footer-note">
         <div>Dokumen Resmi Administrasi Sekolah | SIMAGU - ${setting.namaSekolah || 'SMK NEGERI BOJONGGAMBIR'}</div>
-        <div>Dicetak pada: ${todayStr} Pukul ${timeStr} WIB</div>
+        <div>${showPrintDate ? `Dicetak pada: ${todayStr} Pukul ${timeStr} WIB` : ''}</div>
       </div>
 
       <script>
@@ -271,6 +333,11 @@ export function printHtmlReport(setting: SchoolSetting, options: PrintReportOpti
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   } else {
-    alert('Browser memblokir popup jendela cetak. Silakan izinkan popup untuk aplikasi ini.');
+    try {
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert('Browser memblokir popup jendela cetak. Silakan izinkan popup untuk aplikasi ini.');
+      }
+    } catch {}
+    console.warn('Popup window blocked by browser policy');
   }
 }

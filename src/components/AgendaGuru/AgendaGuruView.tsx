@@ -25,11 +25,15 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { AgendaGuruItem, GuruItem, KelasItem, MapelItem, JadwalItem, SchoolSetting, User, SiswaItem, AgendaKelasItem } from '../../types';
+import { initialGuru, initialMapel } from '../../data/mockData';
 import { generateAgendaGuruPDF } from '../../lib/pdfGenerator';
 import { exportAgendaGuruToExcel } from '../../lib/excelExport';
 import { Storage } from '../../lib/storage';
 import { DigitalSignaturePad } from '../DigitalSignaturePad';
 import { ProofUploader } from '../ProofUploader';
+import { showAlert } from '../../lib/alerts';
+import { toast } from 'sonner';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
 interface AgendaGuruViewProps {
   agendas: AgendaGuruItem[];
@@ -58,9 +62,14 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedKelasFilter, setSelectedKelasFilter] = useState('');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('');
   const [selectedAgenda, setSelectedAgenda] = useState<AgendaGuruItem | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const safeGuruList = React.useMemo(() => (guruList && guruList.length > 0) ? guruList : initialGuru, [guruList]);
+  const safeMapelList = React.useMemo(() => (mapelList && mapelList.length > 0) ? mapelList : initialMapel, [mapelList]);
 
   const handleEditAgenda = (ag: AgendaGuruItem) => {
     setFormData(ag);
@@ -68,10 +77,13 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
     setShowFormModal(true);
   };
 
-  const handleDeleteAgenda = (id: string) => {
-    Storage.deleteAgendaGuru(id);
-    if (selectedAgenda?.id === id) setSelectedAgenda(null);
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    Storage.deleteAgendaGuru(deleteTarget.id);
+    if (selectedAgenda?.id === deleteTarget.id) setSelectedAgenda(null);
     onRefresh();
+    toast.success('Data berhasil dihapus');
+    setDeleteTarget(null);
   };
 
   // Helper to get attendance data from AbsensiSiswa in Storage
@@ -131,7 +143,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
     return days[d.getDay()] || 'Senin';
   };
 
-  const initialKelas = kelasList[0]?.namaKelas || 'XI RPL 1';
+  const initialKelas = kelasList[0]?.namaKelas || 'X DKV 1';
   const initialTanggal = new Date().toISOString().slice(0, 10);
   const initialAtt = getAttendanceFromAbsensiSiswa(initialKelas, initialTanggal);
 
@@ -206,13 +218,20 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
   }, [showFormModal, editingId, formData.kelas, formData.tanggal, getAttendanceFromAbsensiSiswa]);
 
   const safeAgendas = agendas || [];
+  const availableDates = React.useMemo(() => {
+    return Array.from(new Set(safeAgendas.map(a => a.tanggal).filter(Boolean))).sort().reverse();
+  }, [safeAgendas]);
+
   const filteredAgendas = safeAgendas.filter(a => {
     if (!a) return false;
     const matchSearch = (a.namaGuru || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (a.materi || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (a.mapel || '').toLowerCase().includes(searchTerm.toLowerCase());
+                        (a.mapel || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (a.tanggal || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (a.hari || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchKelas = selectedKelasFilter ? a.kelas === selectedKelasFilter : true;
-    return matchSearch && matchKelas;
+    const matchDate = selectedDateFilter ? a.tanggal === selectedDateFilter : true;
+    return matchSearch && matchKelas && matchDate;
   });
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -220,7 +239,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
     setIsSubmitting(true);
 
     try {
-      const curKelas = formData.kelas || kelasList[0]?.namaKelas || 'XI RPL 1';
+      const curKelas = formData.kelas || kelasList[0]?.namaKelas || 'X DKV 1';
       const curTanggal = formData.tanggal || new Date().toISOString().slice(0, 10);
       const att = getAttendanceFromAbsensiSiswa(curKelas, curTanggal);
 
@@ -228,6 +247,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
         const updatedItem: AgendaGuruItem = {
           ...defaultForm,
           ...formData,
+          jumlahJP: Number(formData.jumlahJP) > 0 ? Number(formData.jumlahJP) : 4,
           id: editingId,
           hadir: formData.hadir ?? att.hadir,
           sakit: formData.sakit ?? att.sakit,
@@ -244,6 +264,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
         setEditingId(null);
         setShowFormModal(false);
         onRefresh();
+        showAlert.success('Agenda Berhasil Diperbarui!', `Perubahan agenda guru untuk kelas ${updatedItem.kelas} telah disimpan.`);
         setIsSubmitting(false);
         return;
       }
@@ -251,6 +272,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
       const newItem: AgendaGuruItem = {
         ...defaultForm,
         ...formData,
+        jumlahJP: Number(formData.jumlahJP) > 0 ? Number(formData.jumlahJP) : 4,
         hadir: formData.hadir ?? att.hadir,
         sakit: formData.sakit ?? att.sakit,
         izin: formData.izin ?? att.izin,
@@ -367,6 +389,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
 
       setShowFormModal(false);
       onRefresh();
+      showAlert.success('Agenda Guru Tersimpan!', `Agenda pembelajaran ${newItem.mapel} kelas ${newItem.kelas} berhasil disimpan dan otomatis disinkronkan ke jurnal kelas.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -377,8 +400,8 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
       {/* Top Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <FileText className="h-6 w-6 text-teal-600" />
+          <h2 className="text-xl font-bold text-[#163A5F] dark:text-white flex items-center gap-2">
+            <FileText className="h-6 w-6 text-[#2563EB]" />
             <span>Agenda Harian Guru (SMK Standard)</span>
           </h2>
           <p className="text-xs text-slate-500">
@@ -390,18 +413,18 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
           {onOpenGoogleSheetsModal && (
             <button
               onClick={onOpenGoogleSheetsModal}
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition shadow-2xs"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 px-3.5 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
             >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <FileSpreadsheet className="h-4 w-4 text-[#16A34A] dark:text-emerald-400" />
               <span>Kirim ke Google Sheet</span>
             </button>
           )}
 
           <button
             onClick={() => exportAgendaGuruToExcel(agendas)}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-[#EFF6FF] hover:text-[#163A5F] transition cursor-pointer"
           >
-            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+            <FileSpreadsheet className="h-4 w-4 text-[#16A34A]" />
             <span>Export Excel</span>
           </button>
 
@@ -414,7 +437,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
               });
               setShowFormModal(true);
             }}
-            className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-teal-700 transition"
+            className="flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Buat Agenda Harian Baru</span>
@@ -423,7 +446,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
@@ -431,22 +454,40 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
             placeholder="Cari nama guru, mapel, materi..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="h-4 w-4 text-slate-400" />
-          <select
-            value={selectedKelasFilter}
-            onChange={(e) => setSelectedKelasFilter(e.target.value)}
-            className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="">Semua Kelas</option>
-            {kelasList.map(k => (
-              <option key={k.id} value={k.namaKelas}>{k.namaKelas}</option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-4 w-4 text-[#2563EB]" />
+            <select
+              value={selectedDateFilter}
+              onChange={(e) => setSelectedDateFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#2563EB] cursor-pointer font-medium"
+            >
+              <option value="">Semua Tanggal</option>
+              {availableDates.map(d => (
+                <option key={d} value={d}>
+                  {d === '2026-09-07' ? '7 Sept 2026 (Aktif Hari Ini)' : d}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <Filter className="h-4 w-4 text-[#2563EB]" />
+            <select
+              value={selectedKelasFilter}
+              onChange={(e) => setSelectedKelasFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#2563EB] cursor-pointer font-medium"
+            >
+              <option value="">Semua Kelas</option>
+              {kelasList.map(k => (
+                <option key={k.id} value={k.namaKelas}>{k.namaKelas}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -455,24 +496,24 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
         {filteredAgendas.map((ag) => (
           <div
             key={ag.id}
-            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm hover:border-teal-500 transition space-y-3"
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-2xs hover:border-[#2563EB] hover:bg-[#EFF6FF]/10 transition space-y-3"
           >
             {/* Header Card */}
             <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
               <div>
-                <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-wider block">
+                <span className="text-[10px] font-bold text-[#2563EB] dark:text-blue-400 uppercase tracking-wider block">
                   {ag.nomorAgenda}
                 </span>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h3 className="text-sm font-bold text-[#163A5F] dark:text-white">
                   {ag.namaGuru}
                 </h3>
                 <p className="text-xs text-slate-500">{ag.mapel} • Kelas {ag.kelas}</p>
               </div>
 
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold ${
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
                 ag.statusValidasi === 'Disetujui'
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                  ? 'bg-emerald-50 text-[#16A34A] border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300'
+                  : 'bg-amber-50 text-[#F59E0B] border-amber-200 dark:bg-amber-950/60 dark:text-amber-300'
               }`}>
                 <CheckCircle className="h-3 w-3" />
                 <span>{ag.statusValidasi}</span>
@@ -493,46 +534,46 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
             </div>
 
             {/* Attendance Summary Bar */}
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-2.5 flex items-center justify-between text-xs">
+            <div className="rounded-lg bg-[#F5F7FA] dark:bg-slate-800/60 p-2.5 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3 text-[11px]">
-                <span className="text-emerald-600 font-bold">Hadir: {ag.hadir}</span>
-                <span className="text-amber-500">Sakit: {ag.sakit}</span>
-                <span className="text-sky-500">Izin: {ag.izin}</span>
-                <span className="text-rose-500 font-bold">Alpa: {ag.alpa}</span>
+                <span className="text-[#16A34A] font-bold">Hadir: {ag.hadir}</span>
+                <span className="text-[#F59E0B] font-medium">Sakit: {ag.sakit}</span>
+                <span className="text-[#2563EB] font-medium">Izin: {ag.izin}</span>
+                <span className="text-[#DC2626] font-bold">Alpa: {ag.alpa}</span>
               </div>
-              <span className="text-xs font-black text-teal-600">{ag.persentaseKehadiran}%</span>
+              <span className="text-xs font-black text-[#163A5F] dark:text-white">{ag.persentaseKehadiran}%</span>
             </div>
 
             {/* Card Buttons */}
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => setSelectedAgenda(ag)}
-                className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-[#EFF6FF] hover:text-[#163A5F] hover:border-blue-200 transition cursor-pointer"
               >
-                <Eye className="h-3.5 w-3.5 text-teal-600" />
+                <Eye className="h-3.5 w-3.5 text-[#2563EB]" />
                 <span>Detail</span>
               </button>
 
               <button
                 onClick={() => handleEditAgenda(ag)}
-                className="flex items-center gap-1 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200 px-2.5 py-1.5 text-xs font-semibold hover:bg-amber-100 transition"
+                className="flex items-center gap-1 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-[#F59E0B] dark:text-amber-200 px-2.5 py-1.5 text-xs font-semibold hover:bg-amber-100 transition cursor-pointer"
                 title="Edit Agenda Guru"
               >
-                <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                <Pencil className="h-3.5 w-3.5" />
                 <span>Edit</span>
               </button>
 
               <button
-                onClick={() => handleDeleteAgenda(ag.id)}
-                className="flex items-center gap-1 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 px-2 py-1.5 text-xs font-semibold hover:bg-rose-100 transition"
+                onClick={() => setDeleteTarget({ id: ag.id, name: `${ag.hari}, ${ag.tanggal} • ${ag.kelas} - ${ag.mapel} (${ag.namaGuru})` })}
+                className="flex items-center gap-1 rounded-lg border border-red-200 dark:border-rose-900 bg-red-50 dark:bg-rose-950/50 text-[#DC2626] dark:text-rose-300 px-2 py-1.5 text-xs font-semibold hover:bg-red-100 transition cursor-pointer"
                 title="Hapus Agenda Guru"
               >
-                <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                <Trash2 className="h-3.5 w-3.5 text-[#DC2626]" />
               </button>
 
               <button
                 onClick={() => generateAgendaGuruPDF(ag, setting)}
-                className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700 transition"
+                className="flex items-center gap-1 rounded-lg bg-[#163A5F] hover:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white transition cursor-pointer"
               >
                 <Printer className="h-3.5 w-3.5" />
                 <span>Cetak PDF</span>
@@ -544,20 +585,20 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
 
       {/* Modal Detail Agenda Guru */}
       {selectedAgenda && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative w-full max-w-3xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-5 my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-3xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-5 my-8 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div>
-                <span className="text-xs font-bold text-teal-600 uppercase tracking-wide">
+                <span className="text-xs font-bold text-[#2563EB] uppercase tracking-wide">
                   {selectedAgenda.nomorAgenda}
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h3 className="text-lg font-bold text-[#163A5F] dark:text-white">
                   Detail Agenda Harian Guru - {selectedAgenda.namaGuru}
                 </h3>
               </div>
               <button 
                 onClick={() => setSelectedAgenda(null)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -565,8 +606,8 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 text-xs text-slate-700 dark:text-slate-300">
               {/* Section A */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px]">A. Identitas Guru & Kelas</h4>
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px]">A. Identitas Guru & Kelas</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <div><span className="text-slate-400 block">Tahun / Semester</span><b>{selectedAgenda.tahunPelajaran} ({selectedAgenda.semester})</b></div>
                   <div><span className="text-slate-400 block">Hari / Tanggal</span><b>{selectedAgenda.hari}, {selectedAgenda.tanggal}</b></div>
@@ -578,8 +619,8 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
               </div>
 
               {/* Section C */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px]">C. Agenda Pembelajaran</h4>
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px]">C. Agenda Pembelajaran</h4>
                 <p><b>Elemen:</b> {selectedAgenda.elemen || '-'}</p>
                 <p><b>CP:</b> {selectedAgenda.cp || '-'}</p>
                 <p><b>Tujuan Pembelajaran:</b> {selectedAgenda.tujuanPembelajaran || '-'}</p>
@@ -592,14 +633,14 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
               </div>
 
               {/* Section D & E */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px]">D & E. Kehadiran Siswa</h4>
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px]">D & E. Kehadiran Siswa</h4>
                 <div className="flex gap-4">
-                  <span className="text-emerald-600 font-bold">Hadir: {selectedAgenda.hadir}</span>
-                  <span className="text-amber-500">Sakit: {selectedAgenda.sakit}</span>
-                  <span className="text-sky-500">Izin: {selectedAgenda.izin}</span>
-                  <span className="text-rose-500 font-bold">Alpa: {selectedAgenda.alpa}</span>
-                  <span className="font-black text-teal-600">{selectedAgenda.persentaseKehadiran}%</span>
+                  <span className="text-[#16A34A] font-bold">Hadir: {selectedAgenda.hadir}</span>
+                  <span className="text-[#F59E0B]">Sakit: {selectedAgenda.sakit}</span>
+                  <span className="text-[#2563EB]">Izin: {selectedAgenda.izin}</span>
+                  <span className="text-[#DC2626] font-bold">Alpa: {selectedAgenda.alpa}</span>
+                  <span className="font-black text-[#163A5F] dark:text-white">{selectedAgenda.persentaseKehadiran}%</span>
                 </div>
                 {selectedAgenda.siswaTidakHadir.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
@@ -614,17 +655,17 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
               </div>
 
               {/* Section H: Catatan */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px]">H. Catatan Guru</h4>
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px]">H. Catatan Guru</h4>
                 <p><b>Kendala:</b> {selectedAgenda.kendala || '-'}</p>
                 <p><b>Solusi:</b> {selectedAgenda.solusi || '-'}</p>
                 <p><b>Refleksi:</b> {selectedAgenda.refleksi || '-'}</p>
               </div>
 
               {/* Section I: Bukti Dokumen, Foto Selfie & Tautan */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-3">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px] flex items-center gap-1.5">
-                  <Camera className="h-4 w-4 text-teal-600" />
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-3 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px] flex items-center gap-1.5">
+                  <Camera className="h-4 w-4 text-[#2563EB]" />
                   <span>I. Foto Selfie Bukti & Dokumen Pendukung</span>
                 </h4>
 
@@ -651,7 +692,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
                       href={selectedAgenda.driveFolderLink}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs"
                     >
                       <LinkIcon className="h-3.5 w-3.5" />
                       <span>Buka Google Drive Agenda</span>
@@ -664,7 +705,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
                       href={selectedAgenda.dokumenUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-teal-600 text-teal-700 dark:text-teal-300 px-3 py-1.5 text-xs font-bold hover:bg-teal-50 dark:hover:bg-teal-950/40"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#2563EB] text-[#2563EB] dark:text-blue-300 px-3 py-1.5 text-xs font-bold hover:bg-[#EFF6FF] dark:hover:bg-blue-950/40"
                     >
                       <FileText className="h-3.5 w-3.5" />
                       <span>Lihat Dokumen Pendukung</span>
@@ -674,16 +715,16 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
               </div>
 
               {/* Section J: Tanda Tangan Digital */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                <h4 className="font-bold text-slate-900 dark:text-white uppercase text-[11px] flex items-center gap-1.5">
-                  <PenTool className="h-4 w-4 text-teal-600" />
+              <div className="p-3.5 rounded-xl bg-[#F5F7FA] dark:bg-slate-800/50 space-y-2 border border-slate-200/60">
+                <h4 className="font-bold text-[#163A5F] dark:text-white uppercase text-[11px] flex items-center gap-1.5">
+                  <PenTool className="h-4 w-4 text-[#2563EB]" />
                   <span>J. Validasi Tanda Tangan Digital</span>
                 </h4>
 
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
                   <div className="text-center sm:text-left space-y-1">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold">Guru Pengampu</span>
-                    <p className="font-bold text-slate-900 dark:text-white">{selectedAgenda.namaGuru}</p>
+                    <p className="font-bold text-[#163A5F] dark:text-white">{selectedAgenda.namaGuru}</p>
                     <p className="text-[11px] text-slate-500">NIP. {selectedAgenda.nip}</p>
                   </div>
 
@@ -699,9 +740,9 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
                         </div>
                       )
                     ) : (
-                      <span className="text-rose-500 italic text-[11px]">Belum ditandatangani</span>
+                      <span className="text-[#DC2626] italic text-[11px]">Belum ditandatangani</span>
                     )}
-                    <span className="text-[9px] text-teal-600 font-semibold mt-1 flex items-center gap-1">
+                    <span className="text-[9px] text-[#16A34A] font-semibold mt-1 flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" /> Digital Verified
                     </span>
                   </div>
@@ -714,14 +755,14 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
               <div className="flex gap-2">
                 <button
                   onClick={() => generateAgendaGuruPDF(selectedAgenda, setting)}
-                  className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700 transition"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition cursor-pointer"
                 >
                   <Printer className="h-4 w-4" />
                   <span>Cetak PDF</span>
                 </button>
                 <button
                   onClick={() => setSelectedAgenda(null)}
-                  className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-[#EFF6FF] hover:text-[#163A5F] cursor-pointer"
                 >
                   Tutup
                 </button>
@@ -733,32 +774,51 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
 
       {/* Modal Form Agenda Guru Baru */}
       {showFormModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative w-full max-w-4xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-4xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl my-8 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Plus className="h-5 w-5 text-teal-600" />
+              <h3 className="text-base font-bold text-[#163A5F] dark:text-white flex items-center gap-2">
+                <Plus className="h-5 w-5 text-[#2563EB]" />
                 <span>Form Isian Agenda Harian Guru (A-J)</span>
               </h3>
-              <button onClick={() => setShowFormModal(false)} className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+              <button onClick={() => setShowFormModal(false)} className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleSubmitForm} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2 text-xs">
               {/* Identitas */}
-              <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                <h4 className="font-bold text-teal-700 dark:text-teal-400 uppercase text-xs">A. Identitas Guru & Mengajar</h4>
+              <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-[#F5F7FA] dark:bg-slate-800/30">
+                <h4 className="font-bold text-[#163A5F] dark:text-blue-400 uppercase text-xs">A. Identitas Guru & Mengajar</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-300 mb-1">Nama Guru</label>
-                    <input
-                      type="text"
+                    <label className="block text-slate-600 dark:text-slate-300 mb-1 font-semibold flex items-center justify-between">
+                      <span>Guru Pengampu</span>
+                      <span className="text-[10px] text-[#2563EB] dark:text-blue-400 font-bold">{safeGuruList.length} PTK</span>
+                    </label>
+                    <select
                       value={formData.namaGuru || ''}
-                      onChange={(e) => setFormData({ ...formData, namaGuru: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2 bg-white dark:bg-slate-800"
+                      onChange={(e) => {
+                        const selectedNama = e.target.value;
+                        const matchedGuru = safeGuruList.find(g => g.nama === selectedNama);
+                        const primaryMapel = matchedGuru?.mapelUtama ? matchedGuru.mapelUtama.split(',')[0].trim() : '';
+                        setFormData(prev => ({
+                          ...prev,
+                          namaGuru: selectedNama,
+                          nip: matchedGuru?.nip || prev.nip || '',
+                          mapel: primaryMapel || prev.mapel
+                        }));
+                      }}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2 bg-white dark:bg-slate-800 font-bold text-slate-900 dark:text-white cursor-pointer"
                       required
-                    />
+                    >
+                      <option value="">-- Pilih Guru Pengampu --</option>
+                      {safeGuruList.map((g) => (
+                        <option key={g.id || g.nama} value={g.nama}>
+                          {g.kodeGuru ? `[${g.kodeGuru}] ` : ''}{g.nama}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-slate-600 dark:text-slate-300 mb-1">Tanggal</label>
@@ -812,7 +872,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
                           ...prev,
                           kelas: selectedKelas,
                           konsentrasiKeahlian: matchedKelasObj?.jurusan || prev.konsentrasiKeahlian || 'Kejuruan SMK',
-                          mapel: matchingJadwal?.mapel || prev.mapel || (mapelList[0]?.namaMapel || ''),
+                          mapel: matchingJadwal?.mapel || prev.mapel || (safeMapelList[0]?.namaMapel || ''),
                           ruang: matchingJadwal?.ruang || prev.ruang || 'Lab Komputer 1',
                           jamKe: matchingJadwal?.jp ? `JP ${matchingJadwal.jp}` : prev.jamKe || '1 - 4'
                         }));
@@ -838,7 +898,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
                     <label className="block text-slate-600 dark:text-slate-300 mb-1 font-semibold flex items-center justify-between">
                       <span>Mata Pelajaran</span>
                       <span className="text-[10px] text-teal-600 dark:text-teal-400 font-mono font-bold">
-                        {mapelList.length} Mapel Master
+                        {safeMapelList.length} Mapel Master
                       </span>
                     </label>
                     <select
@@ -848,7 +908,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
                       required
                     >
                       <option value="">-- Pilih Mata Pelajaran --</option>
-                      {mapelList.map((m) => (
+                      {safeMapelList.map((m) => (
                         <option key={m.id} value={m.namaMapel}>
                           {m.namaMapel} {m.kode ? `[${m.kode}]` : ''} ({m.kelompok || 'Kejuruan'})
                         </option>
@@ -873,7 +933,7 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
                       value={formData.ruang || ''}
                       onChange={(e) => setFormData({ ...formData, ruang: e.target.value })}
                       className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2 bg-white dark:bg-slate-800 font-semibold"
-                      placeholder="e.g. Lab Komputer 1 / Ruang XI RPL 1"
+                      placeholder="e.g. Bengkel APHP / Studio DKV 1 / Ruang X DKV 1"
                     />
                   </div>
                   <div>
@@ -887,13 +947,66 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-300 mb-1">Jumlah JP</label>
-                    <input
-                      type="number"
-                      value={formData.jumlahJP || 4}
-                      onChange={(e) => setFormData({ ...formData, jumlahJP: Number(e.target.value) })}
-                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2 bg-white dark:bg-slate-800"
-                    />
+                    <label className="block text-slate-600 dark:text-slate-300 mb-1 font-semibold flex items-center justify-between">
+                      <span>Jumlah JP</span>
+                      <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold">Jam Pelajaran</span>
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const curr = Number(formData.jumlahJP) || 1;
+                          setFormData({ ...formData, jumlahJP: Math.max(1, curr - 1) });
+                        }}
+                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-lg flex items-center justify-center hover:bg-slate-200 active:scale-95 transition"
+                        title="Kurangi 1 JP"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max="12"
+                        value={formData.jumlahJP === undefined || formData.jumlahJP === null ? '' : formData.jumlahJP}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({
+                            ...formData,
+                            jumlahJP: val === '' ? ('' as any) : parseInt(val, 10) || 0
+                          });
+                        }}
+                        className="flex-1 rounded-lg border border-slate-300 dark:border-slate-700 p-2 text-center bg-white dark:bg-slate-800 font-bold text-base text-slate-900 dark:text-white"
+                        placeholder="JP"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const curr = Number(formData.jumlahJP) || 0;
+                          setFormData({ ...formData, jumlahJP: Math.min(12, curr + 1) });
+                        }}
+                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-lg flex items-center justify-center hover:bg-slate-200 active:scale-95 transition"
+                        title="Tambah 1 JP"
+                      >
+                        +
+                      </button>
+                    </div>
+                    {/* Touch preset pills for smartphone mode */}
+                    <div className="flex items-center gap-1 mt-1.5 overflow-x-auto pb-1">
+                      {[1, 2, 3, 4, 5, 6].map(num => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, jumlahJP: num })}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${
+                            Number(formData.jumlahJP) === num
+                              ? 'bg-teal-600 text-white shadow-xs'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                          }`}
+                        >
+                          {num} JP
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1153,14 +1266,14 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowFormModal(false)}
-                  className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-[#EFF6FF] hover:text-[#163A5F] cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-5 py-2 text-xs font-bold text-white hover:bg-teal-700 shadow disabled:opacity-60 cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-sm disabled:opacity-60 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -1179,6 +1292,16 @@ export const AgendaGuruView: React.FC<AgendaGuruViewProps> = ({
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        title="Konfirmasi Hapus Agenda Guru"
+        message="Apakah Anda yakin ingin menghapus data ini?"
+        itemName={deleteTarget?.name}
+        itemType="Agenda Harian Guru"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 };

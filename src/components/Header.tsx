@@ -65,7 +65,7 @@ const defaultQuickAlertsAndReminders: NotificationItem[] = [
   {
     id: 'notif-qa-2',
     title: 'Pengingat Jadwal KBM',
-    message: 'Jadwal Mengajar KBM jam ke 3-4 di kelas XII TKJ 2 (Pemrograman Web & Seluler).',
+    message: 'Jadwal Mengajar KBM jam ke 3-4 di kelas XII DKV 2 (Desain Komunikasi Visual).',
     type: 'info',
     timestamp: 'Hari Ini, 09:15',
     read: false,
@@ -75,7 +75,7 @@ const defaultQuickAlertsAndReminders: NotificationItem[] = [
   {
     id: 'notif-qa-3',
     title: 'Pencatatan Agenda Kelas',
-    message: 'Pengurus kelas X TKR 1 belum mencatat jurnal agenda kelas hari ini.',
+    message: 'Pengurus kelas X APHP belum mencatat jurnal agenda kelas hari ini.',
     type: 'warning',
     timestamp: 'Hari Ini, 08:30',
     read: false,
@@ -186,12 +186,12 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 px-4 backdrop-blur transition-colors">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[#E5E7EB] dark:border-slate-800 bg-[#FFFFFF] dark:bg-slate-900 px-4 backdrop-blur-md transition-colors shadow-2xs">
       {/* Left: Mobile Toggle & School Title */}
       <div className="flex items-center gap-3">
         <button
           onClick={toggleSidebarHandler}
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-slate-700 active:scale-95 touch-manipulation lg:hidden shadow-xs"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 text-[#163A5F] dark:text-blue-300 hover:bg-[#EFF6FF] dark:hover:bg-slate-700 active:scale-95 touch-manipulation lg:hidden shadow-xs"
           title="Buka Navigasi Menu"
         >
           <Menu className="h-6 w-6" />
@@ -199,26 +199,24 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs p-1 overflow-hidden shrink-0">
-            {activeSetting.logoUrl ? (
-              <img
-                src={activeSetting.logoUrl}
-                alt="Logo Sekolah"
-                className="h-full w-full object-contain"
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-            ) : (
-              <School className="h-6 w-6 text-teal-600" />
-            )}
+            <img
+              src={activeSetting.logoUrl || '/logo.png'}
+              alt="Logo SMKN Bojonggambir"
+              className="h-full w-full object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target.src !== '/logo.png' && !target.src.endsWith('/logo.png')) {
+                  target.src = '/logo.png';
+                }
+              }}
+            />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-base font-bold text-[#163A5F] dark:text-white tracking-tight">
                 SIMAGU
               </h1>
-              <span className="hidden sm:inline-block rounded-md bg-teal-100 dark:bg-teal-900/40 px-2 py-0.5 text-xs font-semibold text-teal-800 dark:text-teal-300">
+              <span className="hidden sm:inline-block rounded-md bg-[#EFF6FF] dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 px-2 py-0.5 text-xs font-semibold text-[#163A5F] dark:text-blue-300">
                 SMK Edition
               </span>
             </div>
@@ -239,7 +237,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Google Sheets Sync Badge */}
         <button
           onClick={onOpenGoogleSheetsModal}
-          className="flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 p-2 sm:px-3 sm:py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition shadow-2xs"
+          className="flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 p-2 sm:px-3 sm:py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition shadow-2xs cursor-pointer"
           title="Sinkronkan data ke Google Sheets"
         >
           <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -258,7 +256,7 @@ export const Header: React.FC<HeaderProps> = ({
                 Storage.logAudit('SWITCH_USER_ROLE', `Beralih peran pengguna ke ${selected.role} (${selected.nama})`);
               }
             }}
-            className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-1.5 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer max-w-[100px] sm:max-w-[160px] truncate"
+            className="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-1.5 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#2563EB] cursor-pointer max-w-[100px] sm:max-w-[160px] truncate"
           >
             {users.map((u) => (
               <option key={u.id} value={u.id}>
@@ -391,16 +389,16 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="relative">
           <button
             onClick={() => setShowNotifMenu(!showNotifMenu)}
-            className={`relative rounded-xl p-2 transition min-h-[40px] min-w-[40px] flex items-center justify-center border ${
+            className={`relative rounded-xl p-2 transition min-h-[40px] min-w-[40px] flex items-center justify-center border cursor-pointer ${
               showNotifMenu
-                ? 'border-teal-500 bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300'
-                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'border-[#2563EB] bg-[#EFF6FF] text-[#163A5F] dark:bg-blue-950/60 dark:text-blue-300'
+                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-[#EFF6FF] dark:hover:bg-slate-800'
             }`}
             title="Peringatan Aksi Cepat & Jadwal"
           >
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#DC2626] text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
                 {unreadCount}
               </span>
             )}
@@ -411,11 +409,11 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Header inside modal */}
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5 mb-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/60 text-teal-600 dark:text-teal-400">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EFF6FF] dark:bg-blue-950/60 text-[#2563EB] dark:text-blue-400">
                     <Zap className="h-4 w-4 fill-current" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                    <h3 className="text-xs font-bold text-[#163A5F] dark:text-slate-100 tracking-tight">
                       Aksi Cepat & Jadwal
                     </h3>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">
@@ -428,7 +426,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {unreadCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1 bg-teal-50 dark:bg-teal-950/60 px-2 py-1 rounded-md"
+                      className="text-[10px] font-semibold text-[#2563EB] dark:text-blue-400 hover:underline flex items-center gap-1 bg-[#EFF6FF] dark:bg-blue-950/60 px-2 py-1 rounded-md cursor-pointer"
                       title="Tandai semua dibaca"
                     >
                       <CheckCheck className="h-3 w-3" />
@@ -437,7 +435,7 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                   <button
                     onClick={() => setShowNotifMenu(false)}
-                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -549,7 +547,7 @@ export const Header: React.FC<HeaderProps> = ({
                             {!n.read && (
                               <button
                                 onClick={() => handleMarkRead(n.id)}
-                                className="text-[10px] text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 underline"
+                                className="text-[10px] text-slate-400 hover:text-[#2563EB] dark:hover:text-blue-400 underline cursor-pointer"
                               >
                                 Tandai Dibaca
                               </button>
@@ -571,18 +569,18 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">
               {activeUser.nama.split(',')[0]}
             </span>
-            <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium">
+            <span className="text-[10px] text-[#2563EB] dark:text-blue-400 font-semibold">
               {activeUser.role}
             </span>
           </div>
-          <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-gradient-to-tr from-teal-600 to-emerald-500 text-white font-bold text-xs shadow shrink-0">
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-[#163A5F] text-white font-bold text-xs shadow-xs shrink-0 border border-blue-200 dark:border-blue-900">
             {activeUser.nama.charAt(0)}
           </div>
 
           {onLogout && (
             <button
               onClick={onLogout}
-              className="rounded-lg p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:text-slate-400 dark:hover:text-rose-400 transition"
+              className="rounded-lg p-1.5 text-slate-500 hover:text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-950/40 dark:text-slate-400 dark:hover:text-red-400 transition cursor-pointer"
               title="Keluar / Logout"
             >
               <LogOut className="h-4 w-4" />

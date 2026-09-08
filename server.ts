@@ -1,10 +1,12 @@
 import express from "express";
+import http from "http";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { google } from "googleapis";
 
 async function startServer() {
   const app = express();
+  const server = http.createServer(app);
   const PORT = 3000;
 
   app.use(express.json({ limit: "25mb" }));
@@ -285,28 +287,9 @@ async function startServer() {
       await updateSheetRange('Tugas_Siswa!A1', [tugasHeader, ...tugasRows]);
 
       // 14. Input Nilai Siswa
-      const nilaiHeader = [
-        'No', 'Hari', 'Tanggal', 'NIS', 'Nama Siswa', 'Kelas', 'Mata Pelajaran',
-        'Guru Pengampu', 'Jenis Asesmen', 'Materi / Evaluasi',
-        'Nilai Formatif', 'Nilai Praktik', 'Nilai Akhir', 'Predikat', 'Status Kelulusan', 'Catatan Guru'
-      ];
+      const nilaiHeader = ['No', 'NIS', 'Nama Siswa', 'Kelas', 'Mata Pelajaran', 'Jenis Evaluasi', 'Nilai', 'Keterangan'];
       const nilaiRows = (nilaiSiswaList || []).map((n: any, idx: number) => [
-        idx + 1,
-        n.hari || '-',
-        n.tanggal || '-',
-        n.nis || '-',
-        n.namaSiswa || '-',
-        n.kelas || '-',
-        n.mapel || '-',
-        n.guru || '-',
-        n.jenisAsesmen || n.jenisEvaluasi || 'Formatif (Tugas)',
-        n.materiJudul || '-',
-        n.nilaiFormatif !== undefined ? n.nilaiFormatif : (n.nilai || 0),
-        n.nilaiPraktik !== undefined ? n.nilaiPraktik : 0,
-        n.nilaiAkhir !== undefined ? n.nilaiAkhir : (n.nilai || 0),
-        n.predikat || (n.nilai >= 90 ? 'A' : n.nilai >= 80 ? 'B' : n.nilai >= 70 ? 'C' : 'D'),
-        n.statusKelulusan || ((n.nilaiAkhir || n.nilai || 0) >= 75 ? 'Tuntas' : 'Remedial'),
-        n.catatanGuru || n.keterangan || '-'
+        idx + 1, n.nis, n.namaSiswa, n.kelas, n.mapel, n.jenisEvaluasi || 'UH', n.nilai, n.keterangan || '-'
       ]);
       await updateSheetRange('Input_Nilai_Siswa!A1', [nilaiHeader, ...nilaiRows]);
 
@@ -525,10 +508,16 @@ async function startServer() {
     }
   });
 
+  // Serve public static assets
+  app.use(express.static(path.join(process.cwd(), 'public')));
+
   // Vite middleware for development mode
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server }
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -540,7 +529,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`[SIMAGU SERVER] Running on http://localhost:${PORT}`);
   });
 }

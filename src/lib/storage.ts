@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import {
   SchoolSetting,
   GuruItem,
@@ -6,6 +7,7 @@ import {
   JurusanItem,
   MapelItem,
   JadwalItem,
+  RawJadwalItem,
   AgendaGuruItem,
   AgendaKelasItem,
   AbsensiGuruRecord,
@@ -17,7 +19,8 @@ import {
   NotificationItem,
   AuditLogItem,
   User,
-  UserRole
+  UserRole,
+  MonitoringPembelajaranRecord
 } from '../types';
 
 export interface DriveFolderItem {
@@ -69,6 +72,7 @@ import {
   initialJurusan,
   initialMapel,
   initialJadwal,
+  initialRawJadwal,
   initialAgendaGuru,
   initialAgendaKelas,
   initialAbsensiGuru,
@@ -90,6 +94,7 @@ const KEYS = {
   JURUSAN: 'simagu_jurusan',
   MAPEL: 'simagu_mapel',
   JADWAL: 'simagu_jadwal',
+  RAW_JADWAL: 'simagu_raw_jadwal_501',
   AGENDA_GURU: 'simagu_agenda_guru',
   AGENDA_KELAS: 'simagu_agenda_kelas',
   ABSENSI_GURU: 'simagu_absensi_guru',
@@ -98,6 +103,7 @@ const KEYS = {
   MATERI: 'simagu_materi',
   TUGAS: 'simagu_tugas',
   NILAI_SISWA: 'simagu_nilai_siswa',
+  MONITORING_PEMBELAJARAN: 'simagu_monitoring_pembelajaran',
   NOTIFICATIONS: 'simagu_notifications',
   AUDIT_LOGS: 'simagu_audit_logs',
   USERS: 'simagu_users',
@@ -105,64 +111,233 @@ const KEYS = {
   THEME: 'simagu_theme_mode',
 };
 
-// Production clean slate migration check for specified modules
-const PROD_CLEAN_KEY = 'simagu_prod_clean_records_v3';
-if (typeof window !== 'undefined') {
-  try {
-    if (localStorage.getItem(PROD_CLEAN_KEY) !== 'true') {
-      localStorage.setItem(KEYS.AGENDA_GURU, JSON.stringify([]));
-      localStorage.setItem(KEYS.AGENDA_KELAS, JSON.stringify([]));
-      localStorage.setItem(KEYS.SUPERVISI, JSON.stringify([]));
-      localStorage.setItem(KEYS.MATERI, JSON.stringify([]));
-      localStorage.setItem(KEYS.TUGAS, JSON.stringify([]));
-      localStorage.setItem(PROD_CLEAN_KEY, 'true');
-    }
-  } catch (err) {
-    console.warn('Storage initialization skipped due to environment constraints:', err);
+export const initialMonitoringPembelajaran: MonitoringPembelajaranRecord[] = [
+  {
+    id: 'mon-001',
+    nomorMonitoring: 'MON/2026/08/01',
+    tanggal: '2026-08-03',
+    hari: 'Senin',
+    guru: 'Rian Hermawan, S.Sn',
+    mapel: 'Dasar-dasar Desain Komunikasi Visual',
+    kelas: 'X DKV 1',
+    materi: 'Sketsa Tipografi & Tata Letak Dasar Desain Poster',
+    kehadiran: 100,
+    jumlahHadir: 36,
+    totalSiswa: 36,
+    keterlaksanaan: 'Terlaksana Penuh',
+    kendala: 'Tidak ada kendala, seluruh peserta didik membawa peralatan sketsa manual lengkap.',
+    catatan: 'Peserta didik aktif bereksperimen dengan anatomi huruf dan layout visual.',
+    tindakLanjut: 'Melanjutkan digitalisasi sketsa pada sesi software vektor pekan depan.',
+    status: 'Tercapai',
+    supervisor: 'Drs. H. Ahmad Saepudin, M.Pd',
+    ruang: 'Lab Studio Grafis DKV',
+    jamKe: '1-4'
+  },
+  {
+    id: 'mon-002',
+    nomorMonitoring: 'MON/2026/08/02',
+    tanggal: '2026-08-04',
+    hari: 'Selasa',
+    guru: 'Hj. Neni Rohaeni, S.TP',
+    mapel: 'Produksi Pengolahan Hasil Nabati',
+    kelas: 'XI APHP',
+    materi: 'Teknik Pasteurisasi & Fermentasi Sari Buah Lokal',
+    kehadiran: 97,
+    jumlahHadir: 35,
+    totalSiswa: 36,
+    keterlaksanaan: 'Terlaksana Penuh',
+    kendala: '1 siswa izin karena kegiatan OSIS.',
+    catatan: 'Kepatuhan K3LH dan sanitasi ruang bengkel APHP berjalan sesuai standar industri.',
+    tindakLanjut: 'Pengujian organoleptik hasil fermentasi sari buah pada pertemuan berikutnya.',
+    status: 'Tercapai',
+    supervisor: 'Wali Kelas & Kurikulum',
+    ruang: 'Bengkel Produksi APHP',
+    jamKe: '1-4'
+  },
+  {
+    id: 'mon-003',
+    nomorMonitoring: 'MON/2026/08/03',
+    tanggal: '2026-08-05',
+    hari: 'Rabu',
+    guru: 'Deden Supriatna, S.Kom',
+    mapel: 'Desain Grafis Percetakan & Kemasan Produk',
+    kelas: 'XII DKV 2',
+    materi: 'Finishing Mockup Packaging 3D Menggunakan Software Render',
+    kehadiran: 94,
+    jumlahHadir: 34,
+    totalSiswa: 36,
+    keterlaksanaan: 'Terlaksana Sebagian',
+    kendala: '2 unit PC lab grafis lambat saat rendering resolusi tinggi 300 DPI.',
+    catatan: 'Siswa diarahkan bergantian render dan optimasi tekstur 3D.',
+    tindakLanjut: 'Menjadwalkan maintenance update driver GPU dan penambahan alokasi RAM dengan teknisi lab.',
+    status: 'Dalam Proses',
+    supervisor: 'Drs. H. Ahmad Saepudin, M.Pd',
+    ruang: 'Lab Komputer DKV 2',
+    jamKe: '5-8'
+  },
+  {
+    id: 'mon-004',
+    nomorMonitoring: 'MON/2026/08/06',
+    tanggal: '2026-08-06',
+    hari: 'Kamis',
+    guru: 'Yanti Susanti, S.Pd',
+    mapel: 'Keamanan Pangan & Sanitasi Industri',
+    kelas: 'X APHP',
+    materi: 'Identifikasi Titik Kendali Kritis (HACCP) di Lingkungan Dapur Produksi',
+    kehadiran: 100,
+    jumlahHadir: 36,
+    totalSiswa: 36,
+    keterlaksanaan: 'Terlaksana Penuh',
+    kendala: 'Nihil, KBM diskusi kelompok dan studi kasus berlangsung tertib.',
+    catatan: 'Seluruh kelompok mampu merumuskan lembar kerja HACCP dengan baik.',
+    tindakLanjut: 'Praktek audit sanitasi mandiri di laboratorium.',
+    status: 'Tercapai',
+    supervisor: 'Tim Pengembang Kurikulum',
+    ruang: 'Ruang Teori APHP',
+    jamKe: '1-4'
   }
+];
+
+const memoryStore = new Map<string, string>();
+
+export const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+    } catch {
+      // Access denied or sandboxed
+    }
+    return memoryStore.get(key) || null;
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, value);
+        return;
+      }
+    } catch {
+      // Storage unavailable or quota exceeded
+    }
+    memoryStore.set(key, value);
+  },
+  removeItem: (key: string): void => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(key);
+      }
+    } catch {}
+    memoryStore.delete(key);
+  },
+  clear: (): void => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.clear();
+      }
+    } catch {}
+    memoryStore.clear();
+  }
+};
+
+// Automatic sync to ensure updated master data & 501-line schedule is in place safely
+try {
+  const MASTER_SYNC_KEY = 'simagu_master_sync_501_v20260906';
+  if (typeof window !== 'undefined' && safeLocalStorage.getItem(MASTER_SYNC_KEY) !== 'true') {
+    safeLocalStorage.setItem(KEYS.GURU, JSON.stringify(initialGuru));
+    safeLocalStorage.setItem(KEYS.MAPEL, JSON.stringify(initialMapel));
+    safeLocalStorage.setItem(KEYS.KELAS, JSON.stringify(initialKelas));
+    safeLocalStorage.setItem(KEYS.JADWAL, JSON.stringify(initialJadwal));
+    safeLocalStorage.setItem(KEYS.RAW_JADWAL, JSON.stringify(initialRawJadwal));
+    safeLocalStorage.setItem(MASTER_SYNC_KEY, 'true');
+  }
+
+  // Automatic sync to ensure complete operational records (15 Juli 2026 s.d. 4 Agustus 2026 & 7 September 2026) are loaded
+  const OPS_DATA_SYNC_KEY = 'simagu_ops_sync_2026_09_07_v5';
+  if (typeof window !== 'undefined' && safeLocalStorage.getItem(OPS_DATA_SYNC_KEY) !== 'true') {
+    safeLocalStorage.setItem(KEYS.AGENDA_GURU, JSON.stringify(initialAgendaGuru));
+    safeLocalStorage.setItem(KEYS.AGENDA_KELAS, JSON.stringify(initialAgendaKelas));
+    safeLocalStorage.setItem(KEYS.SUPERVISI, JSON.stringify(initialSupervisi));
+    safeLocalStorage.setItem(KEYS.ABSENSI_GURU, JSON.stringify(initialAbsensiGuru));
+    safeLocalStorage.setItem(KEYS.ABSENSI_SISWA, JSON.stringify(initialAbsensiSiswa));
+    safeLocalStorage.setItem(KEYS.MATERI, JSON.stringify(initialMateri));
+    safeLocalStorage.setItem(KEYS.TUGAS, JSON.stringify(initialTugas));
+    safeLocalStorage.setItem(KEYS.NILAI_SISWA, JSON.stringify(initialNilaiSiswa));
+    safeLocalStorage.setItem(OPS_DATA_SYNC_KEY, 'true');
+  }
+} catch (e) {
+  console.warn('Storage initial sync warning:', e);
 }
 
 function getItem<T>(key: string, fallback: T): T {
   try {
-    if (typeof window === 'undefined' || !window.localStorage) return fallback;
-    const data = localStorage.getItem(key);
+    const data = safeLocalStorage.getItem(key);
     return data ? JSON.parse(data) : fallback;
   } catch (err) {
-    console.error(`Error loading key ${key}:`, err);
+    console.warn(`Error loading key ${key}:`, err);
     return fallback;
   }
 }
 
 function setItem<T>(key: string, data: T): void {
   try {
-    if (typeof window === 'undefined' || !window.localStorage) return;
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (err) {
-    console.error(`Error saving key ${key}:`, err);
+    safeLocalStorage.setItem(key, JSON.stringify(data));
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && key.startsWith('simagu_') && key !== KEYS.AUDIT_LOGS && key !== KEYS.NOTIFICATIONS) {
+      window.dispatchEvent(new CustomEvent('simagu_data_changed', { detail: { key } }));
+    }
+  } catch (err: any) {
+    console.warn(`Storage save warning for key ${key}:`, err?.message || err);
+    // If quota exceeded, attempt fallback saving with lighter payload or warn user
+    if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
+      try {
+        // Fallback: strip heavy base64 fotoUrls if array data
+        if (Array.isArray(data)) {
+          const stripped = data.map((item: any) => {
+            if (item && typeof item === 'object') {
+              return {
+                ...item,
+                fotoUrls: Array.isArray(item.fotoUrls) ? item.fotoUrls.slice(0, 1) : []
+              };
+            }
+            return item;
+          });
+          safeLocalStorage.setItem(key, JSON.stringify(stripped));
+          if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && key.startsWith('simagu_')) {
+            window.dispatchEvent(new CustomEvent('simagu_data_changed', { detail: { key } }));
+          }
+          return;
+        }
+      } catch (fallbackErr) {
+        console.warn('Fallback save also failed:', fallbackErr);
+      }
+    }
   }
 }
 
 export const Storage = {
   // Settings
   getSetting: (): SchoolSetting => {
-    const saved = getItem(KEYS.SETTING, initialSchoolSetting);
-    if (!saved || saved.npsn !== '69989796' || saved.namaSekolah !== 'SMK NEGERI BOJONGGAMBIR' || saved.logoUrl !== initialSchoolSetting.logoUrl || saved.tahunPelajaran === '2025/2026' || !saved.googleSheetUrl || saved.googleSheetUrl.includes('1SIMAGU')) {
-      const updated = { ...initialSchoolSetting, ...saved, tahunPelajaran: '2026/2027', googleSheetUrl: 'https://docs.google.com/spreadsheets/d/1BTYSMyezYCtgUyuNA8MOpoCsf989f88ymbBV9CZihOs/edit', logoUrl: initialSchoolSetting.logoUrl };
-      setItem(KEYS.SETTING, updated);
-      return updated;
+    const saved = getItem<SchoolSetting | null>(KEYS.SETTING, null);
+    if (!saved) {
+      setItem(KEYS.SETTING, initialSchoolSetting);
+      return initialSchoolSetting;
     }
-    return saved;
+    const merged = { ...initialSchoolSetting, ...saved };
+    const OFFICIAL_LOGO = '/logo.png';
+    if (!merged.logoUrl || merged.logoUrl.includes('blogger.googleusercontent.com') || (!merged.logoUrl.startsWith('data:') && merged.logoUrl !== OFFICIAL_LOGO)) {
+      merged.logoUrl = OFFICIAL_LOGO;
+      setItem(KEYS.SETTING, merged);
+    }
+    return merged;
   },
   saveSetting: (setting: SchoolSetting) => setItem(KEYS.SETTING, setting),
 
   // Users & Auth
   getUsers: (): User[] => {
-    const saved = getItem(KEYS.USERS, initialUsers);
-    const removedUsernames = ['suhandi', 'rangga_putra', 'zamzam_zenal', 'resa_yulianti', 'endah_nursolihah', 'zahra_rachmat', 'acep_asphia', 'hendri', 'rizki_akbar'];
-    if (!saved || saved.some(u => removedUsernames.includes(u.username))) {
-      const filtered = (saved || initialUsers).filter(u => !removedUsernames.includes(u.username));
-      setItem(KEYS.USERS, filtered.length > 0 ? filtered : initialUsers);
-      return filtered.length > 0 ? filtered : initialUsers;
+    const saved = getItem<User[] | null>(KEYS.USERS, null);
+    if (!saved || saved.length === 0) {
+      setItem(KEYS.USERS, initialUsers);
+      return initialUsers;
     }
     return saved;
   },
@@ -172,36 +347,24 @@ export const Storage = {
     if (user) {
       setItem(KEYS.CURRENT_USER, user);
     } else {
-      localStorage.removeItem(KEYS.CURRENT_USER);
+      safeLocalStorage.removeItem(KEYS.CURRENT_USER);
     }
   },
 
   // Master Data
   getGuru: (): GuruItem[] => {
-    const saved = getItem(KEYS.GURU, initialGuru);
-    const removedNames = [
-      'Suhandi, S.Pd.I.',
-      'Rangga Putra Riyadi, S.Pd.',
-      'Zamzam Zenal Arifin, S.M.',
-      'Resa Yulianti, S.Sos.',
-      'Endah Nur Solihah, S.Pd.',
-      'Zahra Rachmat Fauzi',
-      'Acep Asphia',
-      'Hendri',
-      'Rizki Akbar Nur Arifin'
-    ];
-    if (!saved || saved.some(g => removedNames.some(rn => g.nama?.includes(rn.split(',')[0])))) {
-      const cleaned = (saved || initialGuru).filter(g => !removedNames.some(rn => g.nama?.includes(rn.split(',')[0])));
-      setItem(KEYS.GURU, cleaned.length > 0 ? cleaned : initialGuru);
-      return cleaned.length > 0 ? cleaned : initialGuru;
+    const saved = getItem<GuruItem[] | null>(KEYS.GURU, null);
+    if (!saved || saved.length === 0) {
+      setItem(KEYS.GURU, initialGuru);
+      return initialGuru;
     }
     return saved;
   },
   saveGuru: (data: GuruItem[]) => setItem(KEYS.GURU, data),
 
   getSiswa: (): SiswaItem[] => {
-    const saved = getItem(KEYS.SISWA, initialSiswa);
-    if (!saved || saved.length < 200 || saved[0]?.nama !== 'Aip Paeja') {
+    const saved = getItem<SiswaItem[] | null>(KEYS.SISWA, null);
+    if (!saved || saved.length === 0) {
       setItem(KEYS.SISWA, initialSiswa);
       return initialSiswa;
     }
@@ -210,8 +373,8 @@ export const Storage = {
   saveSiswa: (data: SiswaItem[]) => setItem(KEYS.SISWA, data),
 
   getKelas: (): KelasItem[] => {
-    const saved = getItem(KEYS.KELAS, initialKelas);
-    if (!saved || saved.length < 10 || saved[0]?.ruang === 'Studio DKV 1') {
+    const saved = getItem<KelasItem[] | null>(KEYS.KELAS, null);
+    if (!saved || saved.length === 0) {
       setItem(KEYS.KELAS, initialKelas);
       return initialKelas;
     }
@@ -220,8 +383,8 @@ export const Storage = {
   saveKelas: (data: KelasItem[]) => setItem(KEYS.KELAS, data),
 
   getJurusan: (): JurusanItem[] => {
-    const saved = getItem(KEYS.JURUSAN, initialJurusan);
-    if (!saved || saved.length < 2) {
+    const saved = getItem<JurusanItem[] | null>(KEYS.JURUSAN, null);
+    if (!saved || saved.length === 0) {
       setItem(KEYS.JURUSAN, initialJurusan);
       return initialJurusan;
     }
@@ -230,8 +393,8 @@ export const Storage = {
   saveJurusan: (data: JurusanItem[]) => setItem(KEYS.JURUSAN, data),
 
   getMapel: (): MapelItem[] => {
-    const saved = getItem(KEYS.MAPEL, initialMapel);
-    if (!saved || saved.length < 18) {
+    const saved = getItem<MapelItem[] | null>(KEYS.MAPEL, null);
+    if (!saved || saved.length === 0) {
       setItem(KEYS.MAPEL, initialMapel);
       return initialMapel;
     }
@@ -240,8 +403,8 @@ export const Storage = {
   saveMapel: (data: MapelItem[]) => setItem(KEYS.MAPEL, data),
 
   getJadwal: (): JadwalItem[] => {
-    const saved = getItem<JadwalItem[]>(KEYS.JADWAL, initialJadwal);
-    if (!saved || !Array.isArray(saved) || saved.length === 0) {
+    const saved = getItem<JadwalItem[] | null>(KEYS.JADWAL, null);
+    if (!saved || saved.length === 0) {
       setItem(KEYS.JADWAL, initialJadwal);
       return initialJadwal;
     }
@@ -252,63 +415,500 @@ export const Storage = {
     const list = Storage.getJadwal();
     list.unshift(item);
     Storage.saveJadwal(list);
-    Storage.logAudit('CREATE_JADWAL', `Menambahkan jadwal pelajaran ${item.mapel} (${item.kelas} - ${item.hari} JP ${item.jp})`);
+    Storage.logAudit('CREATE_JADWAL', `Menambah jadwal: ${item.hari} ${item.kelas} - ${item.mapel} (${item.guru})`);
   },
-  updateJadwal: (id: string, updated: Partial<JadwalItem>) => {
-    const list = Storage.getJadwal();
-    const index = list.findIndex(j => j.id === id);
-    if (index !== -1) {
-      list[index] = { ...list[index], ...updated };
-      Storage.saveJadwal(list);
-      Storage.logAudit('UPDATE_JADWAL', `Memperbarui jadwal pelajaran ${list[index].mapel} (${list[index].kelas} - ${list[index].hari} JP ${list[index].jp})`);
-    }
+  updateJadwal: (item: JadwalItem) => {
+    const list = Storage.getJadwal().map(j => j.id === item.id ? item : j);
+    Storage.saveJadwal(list);
+    Storage.logAudit('UPDATE_JADWAL', `Memperbarui jadwal ID ${item.id}: ${item.hari} ${item.kelas} - ${item.mapel}`);
   },
   deleteJadwal: (id: string) => {
-    const list = Storage.getJadwal();
-    const item = list.find(j => j.id === id);
-    const filtered = list.filter(j => j.id !== id);
-    Storage.saveJadwal(filtered);
-    if (item) {
-      Storage.logAudit('DELETE_JADWAL', `Menghapus jadwal pelajaran ${item.mapel} (${item.kelas} - ${item.hari} JP ${item.jp})`);
+    const list = Storage.getJadwal().filter(j => j.id !== id);
+    Storage.saveJadwal(list);
+    Storage.logAudit('DELETE_JADWAL', `Menghapus jadwal ID: ${id}`);
+  },
+
+  getRawJadwal: (): RawJadwalItem[] => {
+    const saved = getItem<RawJadwalItem[] | null>(KEYS.RAW_JADWAL, null);
+    if (!saved || saved.length === 0) {
+      setItem(KEYS.RAW_JADWAL, initialRawJadwal);
+      return initialRawJadwal;
     }
+    return saved;
+  },
+  saveRawJadwal: (data: RawJadwalItem[]) => setItem(KEYS.RAW_JADWAL, data),
+
+  resetJadwalToOfficial: () => {
+    setItem(KEYS.JADWAL, initialJadwal);
+    setItem(KEYS.RAW_JADWAL, initialRawJadwal);
+    return { jadwal: initialJadwal, rawJadwal: initialRawJadwal };
+  },
+
+  syncAllMasterAndJadwal: () => {
+    setItem(KEYS.GURU, initialGuru);
+    setItem(KEYS.MAPEL, initialMapel);
+    setItem(KEYS.KELAS, initialKelas);
+    setItem(KEYS.JADWAL, initialJadwal);
+    setItem(KEYS.RAW_JADWAL, initialRawJadwal);
+    return {
+      guru: initialGuru,
+      mapel: initialMapel,
+      kelas: initialKelas,
+      jadwal: initialJadwal,
+      rawJadwal: initialRawJadwal
+    };
   },
 
   // Agendas
   getAgendaGuru: (): AgendaGuruItem[] => {
-    return getItem(KEYS.AGENDA_GURU, initialAgendaGuru);
+    const list = getItem<AgendaGuruItem[] | null>(KEYS.AGENDA_GURU, null);
+    if (!list || (Array.isArray(list) && list.length === 0)) {
+      setItem(KEYS.AGENDA_GURU, initialAgendaGuru);
+      return initialAgendaGuru;
+    }
+    // Safety check: ensure records for 2026-09-07 are present
+    const hasSept7 = list.some(a => a.tanggal === '2026-09-07');
+    if (!hasSept7) {
+      const sept7Items = initialAgendaGuru.filter(a => a.tanggal === '2026-09-07');
+      if (sept7Items.length > 0) {
+        const merged = [...sept7Items, ...list];
+        setItem(KEYS.AGENDA_GURU, merged);
+        return merged;
+      }
+    }
+    return list;
   },
   saveAgendaGuru: (data: AgendaGuruItem[]) => setItem(KEYS.AGENDA_GURU, data),
   addAgendaGuru: (item: AgendaGuruItem) => {
     const list = Storage.getAgendaGuru();
-    list.unshift(item);
-    Storage.saveAgendaGuru(list);
+    const safeList = Array.isArray(list) ? [...list] : [];
+    safeList.unshift(item);
+    Storage.saveAgendaGuru(safeList);
+
+    // Toast confirmation
+    toast.success('Agenda Guru Berhasil Disimpan! ✨', {
+      description: `Kelas: ${item.kelas} • Mapel: ${item.mapel}`,
+    });
 
     // Auto notification if any student marked Alpa
-    if (item.alpa > 0) {
-      const alpaStudents = item.siswaTidakHadir.filter(s => s.kategori === 'Alpa').map(s => s.nama).join(', ');
-      Storage.addNotification({
-        id: 'notif-' + Date.now(),
-        title: `Peringatan Alpa: ${item.kelas}`,
-        message: `Terdapat ${item.alpa} siswa Alpa pada jam pelajaran ${item.namaGuru}: ${alpaStudents}. Mohon Wali Kelas menindaklanjuti.`,
-        type: 'alert',
-        timestamp: new Date().toLocaleString('id-ID'),
-        read: false,
-        targetRole: 'Wali Kelas'
-      });
+    if (item.alpa > 0 && Array.isArray(item.siswaTidakHadir) && item.siswaTidakHadir.length > 0) {
+      const alpaStudents = item.siswaTidakHadir.filter(s => s && s.kategori === 'Alpa').map(s => s.nama).join(', ');
+      if (alpaStudents) {
+        Storage.addNotification({
+          id: 'notif-' + Date.now(),
+          title: `Peringatan Alpa: ${item.kelas}`,
+          message: `Terdapat ${item.alpa} siswa Alpa pada jam pelajaran ${item.namaGuru}: ${alpaStudents}. Mohon Wali Kelas menindaklanjuti.`,
+          type: 'alert',
+          timestamp: new Date().toLocaleString('id-ID'),
+          read: false,
+          targetRole: 'Wali Kelas'
+        });
+      }
     }
 
     Storage.logAudit('CREATE_AGENDA_GURU', `Membuat Agenda Guru #${item.nomorAgenda} untuk kelas ${item.kelas}`);
   },
+  updateAgendaGuru: (item: AgendaGuruItem) => {
+    const list = Storage.getAgendaGuru().map(a => a.id === item.id ? item : a);
+    Storage.saveAgendaGuru(list);
+    toast.success('Agenda Guru Berhasil Diperbarui! 📝', {
+      description: `Agenda #${item.nomorAgenda} (${item.kelas})`
+    });
+    Storage.logAudit('UPDATE_AGENDA_GURU', `Mengubah Agenda Guru #${item.nomorAgenda} - ${item.kelas}`);
+  },
+  deleteAgendaGuru: (id: string) => {
+    const list = Storage.getAgendaGuru().filter(a => a.id !== id);
+    Storage.saveAgendaGuru(list);
+    toast.info('Agenda Guru Berhasil Dihapus 🗑️');
+    Storage.logAudit('DELETE_AGENDA_GURU', `Menghapus Agenda Guru ID: ${id}`);
+  },
 
   getAgendaKelas: (): AgendaKelasItem[] => {
-    return getItem(KEYS.AGENDA_KELAS, initialAgendaKelas);
+    const list = getItem<AgendaKelasItem[] | null>(KEYS.AGENDA_KELAS, null);
+    if (!list || (Array.isArray(list) && list.length === 0)) {
+      setItem(KEYS.AGENDA_KELAS, initialAgendaKelas);
+      return initialAgendaKelas;
+    }
+    // Safety check: ensure records for 2026-09-07 are present
+    const hasSept7 = list.some(a => a.tanggal === '2026-09-07');
+    if (!hasSept7) {
+      const sept7Items = initialAgendaKelas.filter(a => a.tanggal === '2026-09-07');
+      if (sept7Items.length > 0) {
+        const merged = [...sept7Items, ...list];
+        setItem(KEYS.AGENDA_KELAS, merged);
+        return merged;
+      }
+    }
+    return list;
   },
   saveAgendaKelas: (data: AgendaKelasItem[]) => setItem(KEYS.AGENDA_KELAS, data),
   addAgendaKelas: (item: AgendaKelasItem) => {
     const list = Storage.getAgendaKelas();
     list.unshift(item);
     Storage.saveAgendaKelas(list);
+    toast.success('Agenda Kelas Berhasil Disimpan! ✨', {
+      description: `Kelas: ${item.kelas} • Agenda #${item.nomorAgenda}`
+    });
     Storage.logAudit('CREATE_AGENDA_KELAS', `Membuat Agenda Kelas #${item.nomorAgenda} - ${item.kelas}`);
+  },
+  updateAgendaKelas: (item: AgendaKelasItem) => {
+    const list = Storage.getAgendaKelas().map(a => a.id === item.id ? item : a);
+    Storage.saveAgendaKelas(list);
+    toast.success('Agenda Kelas Berhasil Diperbarui! 📝');
+    Storage.logAudit('UPDATE_AGENDA_KELAS', `Mengubah Agenda Kelas #${item.nomorAgenda} - ${item.kelas}`);
+  },
+  deleteAgendaKelas: (id: string) => {
+    const list = Storage.getAgendaKelas().filter(a => a.id !== id);
+    Storage.saveAgendaKelas(list);
+    toast.info('Agenda Kelas Berhasil Dihapus 🗑️');
+    Storage.logAudit('DELETE_AGENDA_KELAS', `Menghapus Agenda Kelas ID: ${id}`);
+  },
+
+  addPelanggaran: (pelanggaran: { id_siswa?: string; namaSiswa: string; kelas: string; tanggal?: string; pelanggaran: string; poin: number; tindakan: string; tindakLanjut: string }) => {
+    const list = Storage.getAgendaKelas();
+    const today = pelanggaran.tanggal || new Date().toISOString().slice(0, 10);
+    let target = list.find(a => a.kelas === pelanggaran.kelas && a.tanggal === today);
+    if (!target) {
+      target = list.find(a => a.kelas === pelanggaran.kelas);
+    }
+
+    const kategori: 'Ringan' | 'Sedang' | 'Berat' = pelanggaran.poin >= 25 ? 'Berat' : pelanggaran.poin >= 10 ? 'Sedang' : 'Ringan';
+    const itemToAdd = {
+      id: 'plg-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      namaSiswa: pelanggaran.namaSiswa,
+      pelanggaran: pelanggaran.pelanggaran,
+      kategori,
+      poin: pelanggaran.poin,
+      guruPelapor: 'Guru Pengampu / Wali Kelas',
+      tindakan: pelanggaran.tindakan,
+      tindakLanjut: pelanggaran.tindakLanjut
+    };
+
+    if (target) {
+      if (!target.pelanggaranList) target.pelanggaranList = [];
+      target.pelanggaranList.push(itemToAdd);
+      Storage.saveAgendaKelas([...list]);
+    } else {
+      const isAPHP = pelanggaran.kelas.includes('APHP');
+      const newAK: AgendaKelasItem = {
+        id: 'ak-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        nomorAgenda: `AK/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${Math.floor(100 + Math.random() * 900)}`,
+        tahunPelajaran: '2024/2025',
+        semester: 'Genap',
+        tanggal: today,
+        hari: ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date(today).getDay()] || 'Senin',
+        kelas: pelanggaran.kelas,
+        jurusan: isAPHP ? 'Agribisnis Pengolahan Hasil Pertanian (APHP)' : 'Desain Komunikasi Visual (DKV)',
+        konsentrasiKeahlian: isAPHP ? 'Agribisnis Pengolahan Hasil Pertanian' : 'Desain Komunikasi Visual',
+        waliKelas: 'Wali Kelas',
+        ketuaKelas: 'Ketua Rombel',
+        wakilKetua: 'Wakil Ketua',
+        jumlahSiswa: 36,
+        jumlahLaki: 18,
+        jumlahPerempuan: 18,
+        hadir: 36,
+        sakit: 0,
+        izin: 0,
+        alpa: 0,
+        terlambat: 0,
+        persentase: 100,
+        siswaTidakHadir: [],
+        monitoringPembelajaran: [],
+        agendaRoutine: [],
+        pelanggaranList: [itemToAdd],
+        prestasiList: [],
+        kesehatanList: [],
+        inventarisList: [],
+        komunikasiOrtuList: [],
+        catatanWaliKelas: {
+          kondisiUmum: 'Baik dan tertib',
+          kedisiplinan: 'Tertib',
+          budayaPositif: '5S Berjalan Baik',
+          kebersihan: 'Bersih',
+          keamanan: 'Kondusif',
+          siswaBermasalah: '',
+          siswaBerprestasi: '',
+          tindakLanjut: ''
+        },
+        validatedByWali: true
+      };
+      Storage.saveAgendaKelas([newAK, ...list]);
+    }
+    Storage.logAudit('CREATE_PELANGGARAN', `Mencatat pelanggaran siswa: ${pelanggaran.namaSiswa} (${pelanggaran.kelas}) - ${pelanggaran.pelanggaran}`);
+  },
+
+  updatePelanggaran: (pelanggaranId: string, updated: { namaSiswa?: string; pelanggaran?: string; kategori?: 'Ringan' | 'Sedang' | 'Berat'; poin?: number; tindakan?: string; tindakLanjut?: string; kronologi?: string; sanksi?: string; status?: 'Dalam Pembinaan' | 'Selesai' | 'Surat Panggilan' }) => {
+    const list = Storage.getAgendaKelas();
+    let found = false;
+    list.forEach(ak => {
+      if (ak.pelanggaranList) {
+        ak.pelanggaranList = ak.pelanggaranList.map(p => {
+          if (p.id === pelanggaranId) {
+            found = true;
+            return { ...p, ...updated };
+          }
+          return p;
+        });
+      }
+    });
+    if (found) {
+      Storage.saveAgendaKelas([...list]);
+      Storage.logAudit('UPDATE_PELANGGARAN', `Memperbarui data pelanggaran ID: ${pelanggaranId}`);
+    }
+  },
+
+  deletePelanggaran: (pelanggaranId: string) => {
+    const list = Storage.getAgendaKelas();
+    let found = false;
+    list.forEach(ak => {
+      if (ak.pelanggaranList) {
+        const initialLen = ak.pelanggaranList.length;
+        ak.pelanggaranList = ak.pelanggaranList.filter(p => p.id !== pelanggaranId);
+        if (ak.pelanggaranList.length !== initialLen) found = true;
+      }
+    });
+    if (found) {
+      Storage.saveAgendaKelas([...list]);
+      Storage.logAudit('DELETE_PELANGGARAN', `Menghapus pelanggaran ID: ${pelanggaranId}`);
+    }
+  },
+
+  addPrestasi: (prestasi: { id_siswa?: string; namaSiswa: string; kelas: string; tanggal?: string; bidang: string; tingkat: string; juara: string; keterangan: string }) => {
+    const list = Storage.getAgendaKelas();
+    const today = prestasi.tanggal || new Date().toISOString().slice(0, 10);
+    let target = list.find(a => a.kelas === prestasi.kelas && a.tanggal === today);
+    if (!target) {
+      target = list.find(a => a.kelas === prestasi.kelas);
+    }
+
+    let tingkat: 'Sekolah' | 'Kabupaten' | 'Provinsi' | 'Nasional' | 'Internasional' = 'Kabupaten';
+    if (prestasi.tingkat.includes('Sekolah') || prestasi.tingkat.includes('Kecamatan')) tingkat = 'Sekolah';
+    else if (prestasi.tingkat.includes('Provinsi') || prestasi.tingkat.includes('Priangan')) tingkat = 'Provinsi';
+    else if (prestasi.tingkat.includes('Nasional')) tingkat = 'Nasional';
+    else if (prestasi.tingkat.includes('Internasional')) tingkat = 'Internasional';
+
+    const itemToAdd = {
+      id: 'prs-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      namaSiswa: prestasi.namaSiswa,
+      bidang: prestasi.bidang,
+      tingkat,
+      juara: prestasi.juara,
+      tanggal: today,
+      keterangan: prestasi.keterangan
+    };
+
+    if (target) {
+      if (!target.prestasiList) target.prestasiList = [];
+      target.prestasiList.push(itemToAdd);
+      Storage.saveAgendaKelas([...list]);
+    } else {
+      const isAPHP = prestasi.kelas.includes('APHP');
+      const newAK: AgendaKelasItem = {
+        id: 'ak-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        nomorAgenda: `AK/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${Math.floor(100 + Math.random() * 900)}`,
+        tahunPelajaran: '2024/2025',
+        semester: 'Genap',
+        tanggal: today,
+        hari: ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date(today).getDay()] || 'Senin',
+        kelas: prestasi.kelas,
+        jurusan: isAPHP ? 'Agribisnis Pengolahan Hasil Pertanian (APHP)' : 'Desain Komunikasi Visual (DKV)',
+        konsentrasiKeahlian: isAPHP ? 'Agribisnis Pengolahan Hasil Pertanian' : 'Desain Komunikasi Visual',
+        waliKelas: 'Wali Kelas',
+        ketuaKelas: 'Ketua Rombel',
+        wakilKetua: 'Wakil Ketua',
+        jumlahSiswa: 36,
+        jumlahLaki: 18,
+        jumlahPerempuan: 18,
+        hadir: 36,
+        sakit: 0,
+        izin: 0,
+        alpa: 0,
+        terlambat: 0,
+        persentase: 100,
+        siswaTidakHadir: [],
+        monitoringPembelajaran: [],
+        agendaRoutine: [],
+        pelanggaranList: [],
+        prestasiList: [itemToAdd],
+        kesehatanList: [],
+        inventarisList: [],
+        komunikasiOrtuList: [],
+        catatanWaliKelas: {
+          kondisiUmum: 'Baik dan tertib',
+          kedisiplinan: 'Tertib',
+          budayaPositif: '5S Berjalan Baik',
+          kebersihan: 'Bersih',
+          keamanan: 'Kondusif',
+          siswaBermasalah: '',
+          siswaBerprestasi: '',
+          tindakLanjut: ''
+        },
+        validatedByWali: true
+      };
+      Storage.saveAgendaKelas([newAK, ...list]);
+    }
+    Storage.logAudit('CREATE_PRESTASI', `Mencatat prestasi siswa: ${prestasi.namaSiswa} (${prestasi.kelas}) - ${prestasi.juara} ${prestasi.bidang}`);
+  },
+
+  updatePrestasi: (prestasiId: string, updated: { namaSiswa?: string; bidang?: string; tingkat?: 'Sekolah' | 'Kabupaten' | 'Provinsi' | 'Nasional' | 'Internasional'; juara?: string; tanggal?: string; keterangan?: string; namaKegiatan?: string; penyelenggara?: string }) => {
+    const list = Storage.getAgendaKelas();
+    let found = false;
+    list.forEach(ak => {
+      if (ak.prestasiList) {
+        ak.prestasiList = ak.prestasiList.map(p => {
+          if (p.id === prestasiId) {
+            found = true;
+            return { ...p, ...updated };
+          }
+          return p;
+        });
+      }
+    });
+    if (found) {
+      Storage.saveAgendaKelas([...list]);
+      Storage.logAudit('UPDATE_PRESTASI', `Memperbarui prestasi ID: ${prestasiId}`);
+    }
+  },
+
+  deletePrestasi: (prestasiId: string) => {
+    const list = Storage.getAgendaKelas();
+    let found = false;
+    list.forEach(ak => {
+      if (ak.prestasiList) {
+        const initialLen = ak.prestasiList.length;
+        ak.prestasiList = ak.prestasiList.filter(p => p.id !== prestasiId);
+        if (ak.prestasiList.length !== initialLen) found = true;
+      }
+    });
+    if (found) {
+      Storage.saveAgendaKelas([...list]);
+      Storage.logAudit('DELETE_PRESTASI', `Menghapus prestasi ID: ${prestasiId}`);
+    }
+  },
+
+  addInventaris: (inventaris: { 
+    kelas: string; 
+    barang: string; 
+    jumlah: number; 
+    baik: number; 
+    rusakRingan: number; 
+    rusakBerat: number; 
+    keterangan: string;
+    kode?: string;
+    kategori?: string;
+    satuan?: string;
+    kondisi?: 'Baik' | 'Rusak Ringan' | 'Rusak Berat' | 'Hilang';
+    lokasi?: string;
+    tanggalPengadaan?: string;
+    sumberDana?: string;
+  }) => {
+    const list = Storage.getAgendaKelas();
+    let target = list.find(a => a.kelas === inventaris.kelas);
+    const itemToAdd = {
+      id: 'inv-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      kode: inventaris.kode || `INV-${inventaris.kelas.replace(/[^a-zA-Z0-9]/g, '')}-${Math.floor(100 + Math.random() * 900)}`,
+      kategori: inventaris.kategori || 'Perlengkapan Kelas',
+      satuan: inventaris.satuan || 'Unit',
+      kondisi: inventaris.kondisi || (inventaris.rusakBerat > 0 ? 'Rusak Berat' : inventaris.rusakRingan > 0 ? 'Rusak Ringan' : 'Baik'),
+      lokasi: inventaris.lokasi || inventaris.kelas,
+      tanggalPengadaan: inventaris.tanggalPengadaan || new Date().toISOString().slice(0, 10),
+      sumberDana: inventaris.sumberDana || 'BOS Reguler / Sarpras',
+      barang: inventaris.barang,
+      jumlah: inventaris.jumlah,
+      baik: inventaris.baik,
+      rusakRingan: inventaris.rusakRingan,
+      rusakBerat: inventaris.rusakBerat,
+      keterangan: inventaris.keterangan
+    };
+
+    if (target) {
+      if (!target.inventarisList) target.inventarisList = [];
+      target.inventarisList.push(itemToAdd);
+      Storage.saveAgendaKelas([...list]);
+    } else {
+      const isAPHP = inventaris.kelas.includes('APHP');
+      const today = new Date().toISOString().slice(0, 10);
+      const newAK: AgendaKelasItem = {
+        id: 'ak-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        nomorAgenda: `AK/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${Math.floor(100 + Math.random() * 900)}`,
+        tahunPelajaran: '2024/2025',
+        semester: 'Genap',
+        tanggal: today,
+        hari: ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date(today).getDay()] || 'Senin',
+        kelas: inventaris.kelas,
+        jurusan: isAPHP ? 'Agribisnis Pengolahan Hasil Pertanian (APHP)' : 'Desain Komunikasi Visual (DKV)',
+        konsentrasiKeahlian: isAPHP ? 'Agribisnis Pengolahan Hasil Pertanian' : 'Desain Komunikasi Visual',
+        waliKelas: 'Wali Kelas',
+        ketuaKelas: 'Ketua Rombel',
+        wakilKetua: 'Wakil Ketua',
+        jumlahSiswa: 36,
+        jumlahLaki: 18,
+        jumlahPerempuan: 18,
+        hadir: 36,
+        sakit: 0,
+        izin: 0,
+        alpa: 0,
+        terlambat: 0,
+        persentase: 100,
+        siswaTidakHadir: [],
+        monitoringPembelajaran: [],
+        agendaRoutine: [],
+        pelanggaranList: [],
+        prestasiList: [],
+        kesehatanList: [],
+        inventarisList: [itemToAdd],
+        komunikasiOrtuList: [],
+        catatanWaliKelas: {
+          kondisiUmum: 'Baik dan tertib',
+          kedisiplinan: 'Tertib',
+          budayaPositif: '5S Berjalan Baik',
+          kebersihan: 'Bersih',
+          keamanan: 'Kondusif',
+          siswaBermasalah: '',
+          siswaBerprestasi: '',
+          tindakLanjut: ''
+        },
+        validatedByWali: true
+      };
+      Storage.saveAgendaKelas([newAK, ...list]);
+    }
+    Storage.logAudit('CREATE_INVENTARIS', `Mencatat inventaris barang: ${inventaris.barang} untuk kelas ${inventaris.kelas}`);
+  },
+
+  updateInventaris: (identifier: string, updated: any) => {
+    const list = Storage.getAgendaKelas();
+    let found = false;
+    list.forEach(ak => {
+      if (ak.inventarisList) {
+        ak.inventarisList = ak.inventarisList.map((inv: any) => {
+          if (inv.id === identifier || inv.barang === identifier) {
+            found = true;
+            return { ...inv, ...updated };
+          }
+          return inv;
+        });
+      }
+    });
+    if (found) {
+      Storage.saveAgendaKelas([...list]);
+      Storage.logAudit('UPDATE_INVENTARIS', `Memperbarui inventaris: ${updated.barang || identifier}`);
+    }
+  },
+
+  deleteInventaris: (identifier: string) => {
+    const list = Storage.getAgendaKelas();
+    let found = false;
+    list.forEach(ak => {
+      if (ak.inventarisList) {
+        const initialLen = ak.inventarisList.length;
+        ak.inventarisList = ak.inventarisList.filter((inv: any) => inv.id !== identifier && inv.barang !== identifier);
+        if (ak.inventarisList.length !== initialLen) found = true;
+      }
+    });
+    if (found) {
+      Storage.saveAgendaKelas([...list]);
+      Storage.logAudit('DELETE_INVENTARIS', `Menghapus inventaris: ${identifier}`);
+    }
   },
 
   // Absensi
@@ -321,12 +921,56 @@ export const Storage = {
     return getItem(KEYS.ABSENSI_SISWA, initialAbsensiSiswa);
   },
   saveAbsensiSiswa: (data: AbsensiSiswaRecord[]) => setItem(KEYS.ABSENSI_SISWA, data),
+  deleteAbsensiRecord: (id: string) => {
+    const list = Storage.getAbsensiSiswa().filter(a => a.id !== id);
+    Storage.saveAbsensiSiswa(list);
+    Storage.logAudit('DELETE_ABSENSI_SISWA', `Menghapus record presensi siswa ID: ${id}`);
+  },
+  deleteAbsensiSession: (kelas: string, tanggal: string, mapel?: string) => {
+    const list = Storage.getAbsensiSiswa().filter(a => {
+      const matchKelas = a.kelas === kelas;
+      const matchTanggal = a.tanggal === tanggal;
+      const matchMapel = !mapel || !a.mapel || a.mapel.toLowerCase() === mapel.toLowerCase();
+      return !(matchKelas && matchTanggal && matchMapel);
+    });
+    Storage.saveAbsensiSiswa(list);
+    Storage.logAudit('DELETE_ABSENSI_SESSION', `Menghapus sesi presensi kelas ${kelas} tanggal ${tanggal} mapel ${mapel || 'Semua'}`);
+  },
+  updateAbsensiRecord: (item: AbsensiSiswaRecord) => {
+    const list = Storage.getAbsensiSiswa().map(a => a.id === item.id ? item : a);
+    Storage.saveAbsensiSiswa(list);
+    Storage.logAudit('UPDATE_ABSENSI_SISWA', `Memperbarui presensi ${item.namaSiswa}: ${item.status}`);
+  },
 
   // Supervisi
   getSupervisi: (): SupervisiRecord[] => {
-    return getItem(KEYS.SUPERVISI, initialSupervisi);
+    const list = getItem<SupervisiRecord[] | null>(KEYS.SUPERVISI, null);
+    if (!list || (Array.isArray(list) && list.length === 0)) {
+      setItem(KEYS.SUPERVISI, initialSupervisi);
+      return initialSupervisi;
+    }
+    return list;
   },
   saveSupervisi: (data: SupervisiRecord[]) => setItem(KEYS.SUPERVISI, data),
+  addSupervisi: (item: SupervisiRecord) => {
+    const list = Storage.getSupervisi();
+    list.unshift(item);
+    Storage.saveSupervisi(list);
+    toast.success('Hasil Supervisi Berhasil Disimpan! 📋', { description: `Guru: ${item.namaGuru} • Skor: ${item.skorAkhir}` });
+    Storage.logAudit('CREATE_SUPERVISI', `Mencatat supervisi akademik guru: ${item.namaGuru} (${item.kelas} - ${item.mapel})`);
+  },
+  updateSupervisi: (item: SupervisiRecord) => {
+    const list = Storage.getSupervisi().map(s => s.id === item.id ? item : s);
+    Storage.saveSupervisi(list);
+    toast.success('Data Supervisi Berhasil Diperbarui! 📝');
+    Storage.logAudit('UPDATE_SUPERVISI', `Memperbarui supervisi guru: ${item.namaGuru} (ID: ${item.id})`);
+  },
+  deleteSupervisi: (id: string) => {
+    const list = Storage.getSupervisi().filter(s => s.id !== id);
+    Storage.saveSupervisi(list);
+    toast.info('Data Supervisi Telah Dihapus 🗑️');
+    Storage.logAudit('DELETE_SUPERVISI', `Menghapus data supervisi ID: ${id}`);
+  },
 
   // Materi & Tugas
   getMateri: (): MateriRecord[] => {
@@ -337,16 +981,19 @@ export const Storage = {
     const list = Storage.getMateri();
     list.unshift(item);
     Storage.saveMateri(list);
+    toast.success('Materi Pembelajaran Disimpan! 📚', { description: item.judulMateri });
     Storage.logAudit('CREATE_MATERI', `Membuat Materi: ${item.judulMateri} (${item.kelas})`);
   },
   updateMateri: (item: MateriRecord) => {
     const list = Storage.getMateri().map(m => m.id === item.id ? item : m);
     Storage.saveMateri(list);
+    toast.success('Materi Pembelajaran Diperbarui! 📝');
     Storage.logAudit('UPDATE_MATERI', `Mengubah Materi: ${item.judulMateri}`);
   },
   deleteMateri: (id: string) => {
     const list = Storage.getMateri().filter(m => m.id !== id);
     Storage.saveMateri(list);
+    toast.info('Materi Pembelajaran Dihapus 🗑️');
     Storage.logAudit('DELETE_MATERI', `Menghapus Materi ID: ${id}`);
   },
 
@@ -358,16 +1005,19 @@ export const Storage = {
     const list = Storage.getTugas();
     list.unshift(item);
     Storage.saveTugas(list);
+    toast.success('Tugas/PR Berhasil Disimpan! 📌', { description: item.judulTugas });
     Storage.logAudit('CREATE_TUGAS', `Membuat Tugas: ${item.judulTugas} (${item.kelas})`);
   },
   updateTugas: (item: TugasRecord) => {
     const list = Storage.getTugas().map(t => t.id === item.id ? item : t);
     Storage.saveTugas(list);
+    toast.success('Tugas/PR Berhasil Diperbarui! 📝');
     Storage.logAudit('UPDATE_TUGAS', `Mengubah Tugas: ${item.judulTugas}`);
   },
   deleteTugas: (id: string) => {
     const list = Storage.getTugas().filter(t => t.id !== id);
     Storage.saveTugas(list);
+    toast.info('Tugas/PR Dihapus 🗑️');
     Storage.logAudit('DELETE_TUGAS', `Menghapus Tugas ID: ${id}`);
   },
 
@@ -390,8 +1040,64 @@ export const Storage = {
     const updated = Array.from(map.values());
     Storage.saveNilaiSiswa(updated);
     if (newRecords.length > 0) {
+      toast.success(`${newRecords.length} Nilai Siswa Berhasil Disimpan! 💯`, {
+        description: `Kelas: ${newRecords[0].kelas} • Mapel: ${newRecords[0].mapel}`
+      });
       Storage.logAudit('INPUT_NILAI', `Menginput ${newRecords.length} nilai siswa untuk kelas ${newRecords[0].kelas} - ${newRecords[0].mapel}`);
     }
+  },
+  deleteAssessment: (assessmentId: string) => {
+    const list = Storage.getNilaiSiswa().filter(n => n.assessmentId !== assessmentId);
+    Storage.saveNilaiSiswa(list);
+    toast.info('Data Penilaian Berhasil Dihapus 🗑️');
+    Storage.logAudit('DELETE_ASSESSMENT', `Menghapus seluruh nilai untuk penilaian ID: ${assessmentId}`);
+  },
+  updateAssessmentMetadata: (assessmentId: string, updates: Partial<NilaiSiswaRecord>) => {
+    const list = Storage.getNilaiSiswa().map(n => {
+      if (n.assessmentId === assessmentId) {
+        return { ...n, ...updates };
+      }
+      return n;
+    });
+    Storage.saveNilaiSiswa(list);
+    toast.success('Informasi Penilaian Berhasil Diperbarui! 📝');
+    Storage.logAudit('UPDATE_ASSESSMENT', `Memperbarui parameter penilaian ID: ${assessmentId}`);
+  },
+  deleteNilaiSiswa: (id: string) => {
+    const list = Storage.getNilaiSiswa().filter(n => n.id !== id);
+    Storage.saveNilaiSiswa(list);
+    toast.info('Nilai Siswa Dihapus 🗑️');
+    Storage.logAudit('DELETE_NILAI_SISWA', `Menghapus nilai siswa ID: ${id}`);
+  },
+
+  // Monitoring Pembelajaran
+  getMonitoringPembelajaran: (): MonitoringPembelajaranRecord[] => {
+    const list = getItem<MonitoringPembelajaranRecord[] | null>(KEYS.MONITORING_PEMBELAJARAN, null);
+    if (!list || (Array.isArray(list) && list.length === 0)) {
+      setItem(KEYS.MONITORING_PEMBELAJARAN, initialMonitoringPembelajaran);
+      return initialMonitoringPembelajaran;
+    }
+    return list;
+  },
+  saveMonitoringPembelajaran: (data: MonitoringPembelajaranRecord[]) => setItem(KEYS.MONITORING_PEMBELAJARAN, data),
+  addMonitoringPembelajaran: (item: MonitoringPembelajaranRecord) => {
+    const list = Storage.getMonitoringPembelajaran();
+    list.unshift(item);
+    Storage.saveMonitoringPembelajaran(list);
+    toast.success('Data Monitoring Pembelajaran Berhasil Disimpan! 📊', { description: `${item.kelas} • ${item.mapel}` });
+    Storage.logAudit('CREATE_MONITORING', `Mencatat monitoring KBM #${item.nomorMonitoring} - ${item.guru} (${item.kelas} - ${item.mapel})`);
+  },
+  updateMonitoringPembelajaran: (item: MonitoringPembelajaranRecord) => {
+    const list = Storage.getMonitoringPembelajaran().map(m => m.id === item.id ? item : m);
+    Storage.saveMonitoringPembelajaran(list);
+    toast.success('Data Monitoring Berhasil Diperbarui! 📝');
+    Storage.logAudit('UPDATE_MONITORING', `Memperbarui monitoring KBM #${item.nomorMonitoring} (ID: ${item.id})`);
+  },
+  deleteMonitoringPembelajaran: (id: string) => {
+    const list = Storage.getMonitoringPembelajaran().filter(m => m.id !== id);
+    Storage.saveMonitoringPembelajaran(list);
+    toast.info('Data Monitoring Pembelajaran Dihapus 🗑️');
+    Storage.logAudit('DELETE_MONITORING', `Menghapus monitoring pembelajaran ID: ${id}`);
   },
 
   // Notifications
@@ -518,7 +1224,7 @@ export const Storage = {
       if (parsed.rawState && typeof parsed.rawState === 'object') {
         Object.entries(parsed.rawState).forEach(([k, v]) => {
           if (k.startsWith('simagu_')) {
-            localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+            safeLocalStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
           }
         });
       }
@@ -531,7 +1237,7 @@ export const Storage = {
   },
 
   resetAllToDefault: () => {
-    localStorage.clear();
+    safeLocalStorage.clear();
     Storage.logAudit('RESET_DATABASE', 'Mengembalikan seluruh data SIMAGU ke setelan awal pabrik');
     window.location.reload();
   },
@@ -583,8 +1289,7 @@ export const Storage = {
 
     const departments: DriveDepartmentFolderStructure[] = (jurusanList.length > 0 ? jurusanList : [
       { id: '1', kodeJurusan: 'DKV', namaJurusan: 'Desain Komunikasi Visual', kepalaJurusan: '' },
-      { id: '2', kodeJurusan: 'TKJ', namaJurusan: 'Teknik Komputer dan Jaringan', kepalaJurusan: '' },
-      { id: '3', kodeJurusan: 'TKR', namaJurusan: 'Teknik Kendaraan Ringan', kepalaJurusan: '' }
+      { id: '2', kodeJurusan: 'APHP', namaJurusan: 'Agribisnis Pengolahan Hasil Pertanian', kepalaJurusan: '' }
     ]).map(j => {
       const deptFolder = `${j.namaJurusan} (${j.kodeJurusan})`;
       const basePath = `${taPath}/${deptFolder}`;

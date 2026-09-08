@@ -314,6 +314,21 @@ const GoogleDriveFolderNavigator: React.FC<{ setting: SchoolSetting }> = ({ sett
   );
 };
 
+export interface UnifiedReportFilterState {
+  tahunPelajaran: string;
+  semester: 'Ganjil' | 'Genap' | 'all';
+  hari: string;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  kelas: string;
+  guru: string;
+  mapel: string;
+  status: string; // for presensi: 'all' | 'Sakit' | 'Izin' | 'Alpa' | 'Terlambat'
+  jenisAsesmen: string;
+  statusNilai: string;
+  searchQuery: string;
+}
+
 export const LaporanView: React.FC<LaporanViewProps> = ({
   agendaGuruList = [],
   agendaKelasList = [],
@@ -329,19 +344,24 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 }) => {
   const [periode, setPeriode] = useState<'harian' | 'bulanan' | 'semester'>('harian');
   const [activeCategory, setActiveCategory] = useState<'guru' | 'kelas' | 'presensi' | 'supervisi' | 'nilai' | 'rekap_absensi'>('guru');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedKelasFilter, setSelectedKelasFilter] = useState<string>('all');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
-  
-  // Explicit Filters: Hari, Tanggal, Tahun, Guru, Mapel, Asesmen, Status
-  const [selectedHariFilter, setSelectedHariFilter] = useState<string>('all');
-  const [selectedTanggalFilter, setSelectedTanggalFilter] = useState<string>('');
-  const [selectedTahunFilter, setSelectedTahunFilter] = useState<string>('all');
-  const [selectedGuruFilter, setSelectedGuruFilter] = useState<string>('all');
-  const [selectedMapelFilter, setSelectedMapelFilter] = useState<string>('all');
-  const [selectedJenisAsesmenFilter, setSelectedJenisAsesmenFilter] = useState<string>('all');
-  const [selectedStatusNilaiFilter, setSelectedStatusNilaiFilter] = useState<string>('all');
 
+  const initialFilterState: UnifiedReportFilterState = {
+    tahunPelajaran: setting.tahunPelajaran || '2026/2027',
+    semester: (setting.semester as 'Ganjil' | 'Genap') || 'Ganjil',
+    hari: 'all',
+    tanggalMulai: '',
+    tanggalSelesai: '',
+    kelas: 'all',
+    guru: 'all',
+    mapel: 'all',
+    status: 'all',
+    jenisAsesmen: 'all',
+    statusNilai: 'all',
+    searchQuery: ''
+  };
+
+  const [stagedFilters, setStagedFilters] = useState<UnifiedReportFilterState>(initialFilterState);
+  const [appliedFilters, setAppliedFilters] = useState<UnifiedReportFilterState>(initialFilterState);
   const [exportSuccessNotice, setExportSuccessNotice] = useState<string | null>(null);
 
   const safeGuruList = agendaGuruList || [];
@@ -352,6 +372,30 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     if (nilaiList && nilaiList.length > 0) return nilaiList;
     return Storage.getNilaiSiswa();
   }, [nilaiList]);
+
+  // Apply & Reset Handlers
+  const handleApplyFilter = () => {
+    setAppliedFilters({ ...stagedFilters });
+    setExportSuccessNotice('✅ Filter berhasil diterapkan! Rekapitulasi data dan dokumen cetak telah diperbarui.');
+    setTimeout(() => setExportSuccessNotice(null), 4000);
+  };
+
+  const handleResetFilter = () => {
+    setStagedFilters(initialFilterState);
+    setAppliedFilters(initialFilterState);
+    setExportSuccessNotice('🔄 Filter telah direset ke nilai default.');
+    setTimeout(() => setExportSuccessNotice(null), 3000);
+  };
+
+  // Empty data validation guard
+  const checkHasData = (dataLength: number, reportName: string): boolean => {
+    if (dataLength === 0) {
+      setExportSuccessNotice(`⚠️ Tidak ada data yang sesuai dengan filter yang dipilih (${reportName}). Silakan ubah filter atau klik Reset Filter.`);
+      setTimeout(() => setExportSuccessNotice(null), 5000);
+      return false;
+    }
+    return true;
+  };
 
   const handleExportAllExcel = () => {
     exportAllLaporanToExcel({
@@ -366,16 +410,42 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     setTimeout(() => setExportSuccessNotice(null), 5000);
   };
 
-  // Extract available unique classes for filter dropdown
+  // Interconnected dynamic options
   const availableKelasOptions = useMemo(() => {
     const set = new Set<string>();
     safeGuruList.forEach(g => { if (g.kelas) set.add(g.kelas); });
     safeKelasList.forEach(k => { if (k.kelas) set.add(k.kelas); });
     safeNilaiList.forEach(n => { if (n.kelas) set.add(n.kelas); });
-    // Add standard defaults if set is small
-    ['XI RPL 1', 'XI RPL 2', 'XII TKJ 1', 'XII TKR 1', 'X AK 1'].forEach(c => set.add(c));
+    (kelasList || []).forEach(k => { if (k.namaKelas) set.add(k.namaKelas); });
+    ['X APHP', 'X DKV 1', 'X DKV 2', 'XI APHP', 'XI DKV 1', 'XI DKV 2', 'XII APHP', 'XII DKV 1', 'XII DKV 2', 'XII DKV 3'].forEach(c => set.add(c));
     return Array.from(set).sort();
-  }, [safeGuruList, safeKelasList, safeNilaiList]);
+  }, [safeGuruList, safeKelasList, safeNilaiList, kelasList]);
+
+  const availableGuruOptions = useMemo(() => {
+    const set = new Set<string>();
+    (guruList || []).forEach(g => { if (g.nama) set.add(g.nama); });
+    safeGuruList.forEach(g => { if (g.namaGuru) set.add(g.namaGuru); });
+    safeNilaiList.forEach(n => { if (n.guru) set.add(n.guru); });
+    return Array.from(set).sort();
+  }, [guruList, safeGuruList, safeNilaiList]);
+
+  const availableMapelOptions = useMemo(() => {
+    if (stagedFilters.guru !== 'all') {
+      const teacherMapels = new Set<string>();
+      safeGuruList.filter(g => g.namaGuru === stagedFilters.guru).forEach(g => { if (g.mapel) teacherMapels.add(g.mapel); });
+      safeNilaiList.filter(n => n.guru === stagedFilters.guru).forEach(n => { if (n.mapel) teacherMapels.add(n.mapel); });
+      const matchingGuru = (guruList || []).find(g => g.nama === stagedFilters.guru);
+      if (matchingGuru?.mapelUtama) teacherMapels.add(matchingGuru.mapelUtama);
+      const jadwalList = Storage.getJadwal();
+      jadwalList.filter(j => j.guru === stagedFilters.guru).forEach(j => { if (j.mapel) teacherMapels.add(j.mapel); });
+      if (teacherMapels.size > 0) return Array.from(teacherMapels).sort();
+    }
+    const allMapels = new Set<string>();
+    (mapelList || []).forEach(m => { if (m.namaMapel) allMapels.add(m.namaMapel); });
+    safeGuruList.forEach(g => { if (g.mapel) allMapels.add(g.mapel); });
+    safeNilaiList.forEach(n => { if (n.mapel) allMapels.add(n.mapel); });
+    return Array.from(allMapels).sort();
+  }, [stagedFilters.guru, mapelList, safeGuruList, safeNilaiList, guruList]);
 
   // Aggregate student absence records
   const allAbsentStudents: AbsentStudentEntry[] = useMemo(() => {
@@ -456,99 +526,143 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     return list;
   }, [safeGuruList, safeKelasList]);
 
-  // Filtered lists with Hari, Tanggal, & Tahun filtering
-  const filteredGuruList = safeGuruList.filter(g => {
-    const matchSearch =
-      g.namaGuru?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.mapel?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.kelas?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.nomorAgenda?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.materi?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchKelas = selectedKelasFilter === 'all' || g.kelas === selectedKelasFilter;
-    const matchHari = selectedHariFilter === 'all' || g.hari === selectedHariFilter;
-    const matchTanggal = !selectedTanggalFilter || g.tanggal === selectedTanggalFilter;
-    const matchTahun = selectedTahunFilter === 'all' ||
-      (g.tahunPelajaran && g.tahunPelajaran.includes(selectedTahunFilter)) ||
-      (g.tanggal && g.tanggal.startsWith(selectedTahunFilter));
-    return matchSearch && matchKelas && matchHari && matchTanggal && matchTahun;
-  });
+  // Filtering helpers
+  const matchDateRange = (itemTanggal?: string) => {
+    if (!itemTanggal) return true;
+    if (appliedFilters.tanggalMulai && itemTanggal < appliedFilters.tanggalMulai) return false;
+    if (appliedFilters.tanggalSelesai && itemTanggal > appliedFilters.tanggalSelesai) return false;
+    return true;
+  };
 
-  const filteredKelasList = safeKelasList.filter(k => {
-    const matchSearch =
-      k.kelas?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      k.waliKelas?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      k.tanggal?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchKelas = selectedKelasFilter === 'all' || k.kelas === selectedKelasFilter;
-    const matchHari = selectedHariFilter === 'all' || k.hari === selectedHariFilter;
-    const matchTanggal = !selectedTanggalFilter || k.tanggal === selectedTanggalFilter;
-    const matchTahun = selectedTahunFilter === 'all' ||
-      (k.tahunPelajaran && k.tahunPelajaran.includes(selectedTahunFilter)) ||
-      (k.tanggal && k.tanggal.startsWith(selectedTahunFilter));
-    return matchSearch && matchKelas && matchHari && matchTanggal && matchTahun;
-  });
+  const matchTahunSemester = (itemTahun?: string, itemSemester?: string) => {
+    if (appliedFilters.tahunPelajaran !== 'all') {
+      if (itemTahun && !itemTahun.includes(appliedFilters.tahunPelajaran) && !itemTahun.startsWith(appliedFilters.tahunPelajaran.slice(0, 4))) {
+        return false;
+      }
+    }
+    if (appliedFilters.semester !== 'all' && itemSemester && itemSemester !== appliedFilters.semester) {
+      return false;
+    }
+    return true;
+  };
 
-  const filteredSupervisiList = safeSupervisiList.filter(s => {
-    const matchSearch =
-      s.namaGuru?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.mapel?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.kelas?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.supervisor?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.nomorSupervisi?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchKelas = selectedKelasFilter === 'all' || s.kelas === selectedKelasFilter;
-    const matchHari = selectedHariFilter === 'all' || (s.tanggal && new Date(s.tanggal).toLocaleDateString('id-ID', { weekday: 'long' }) === selectedHariFilter);
-    const matchTanggal = !selectedTanggalFilter || s.tanggal === selectedTanggalFilter;
-    const matchTahun = selectedTahunFilter === 'all' || (s.tanggal && s.tanggal.startsWith(selectedTahunFilter));
-    return matchSearch && matchKelas && matchHari && matchTanggal && matchTahun;
-  });
+  // Filtered lists with appliedFilters
+  const filteredGuruList = useMemo(() => {
+    return safeGuruList.filter(g => {
+      const matchSearch = !appliedFilters.searchQuery ||
+        g.namaGuru?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        g.mapel?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        g.kelas?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        g.nomorAgenda?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        g.materi?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase());
+      const matchKelas = appliedFilters.kelas === 'all' || g.kelas === appliedFilters.kelas;
+      const matchGuru = appliedFilters.guru === 'all' || g.namaGuru === appliedFilters.guru;
+      const matchMapel = appliedFilters.mapel === 'all' || g.mapel === appliedFilters.mapel;
+      const matchHari = appliedFilters.hari === 'all' || g.hari === appliedFilters.hari;
+      return matchSearch && matchKelas && matchGuru && matchMapel && matchHari &&
+        matchTahunSemester(g.tahunPelajaran, g.semester) && matchDateRange(g.tanggal);
+    });
+  }, [safeGuruList, appliedFilters]);
 
-  const filteredAbsentStudents = allAbsentStudents.filter(item => {
-    const matchSearch =
-      item.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.nis.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.kelas.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.alasan.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.mapelOrSumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.guruOrWali.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchKelas = selectedKelasFilter === 'all' || item.kelas === selectedKelasFilter;
-    const matchStatus = selectedStatusFilter === 'all' || item.kategori === selectedStatusFilter;
-    const matchHari = selectedHariFilter === 'all' || item.hari === selectedHariFilter;
-    const matchTanggal = !selectedTanggalFilter || item.tanggal === selectedTanggalFilter;
-    const matchTahun = selectedTahunFilter === 'all' || (item.tanggal && item.tanggal.startsWith(selectedTahunFilter));
-    return matchSearch && matchKelas && matchStatus && matchHari && matchTanggal && matchTahun;
-  });
+  const filteredKelasList = useMemo(() => {
+    return safeKelasList.filter(k => {
+      const matchSearch = !appliedFilters.searchQuery ||
+        k.kelas?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        k.waliKelas?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        k.tanggal?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase());
+      const matchKelas = appliedFilters.kelas === 'all' || k.kelas === appliedFilters.kelas;
+      const matchHari = appliedFilters.hari === 'all' || k.hari === appliedFilters.hari;
+      return matchSearch && matchKelas && matchHari &&
+        matchTahunSemester(k.tahunPelajaran, k.semester) && matchDateRange(k.tanggal);
+    });
+  }, [safeKelasList, appliedFilters]);
 
-  const filteredNilaiList = safeNilaiList.filter(n => {
-    const matchSearch =
-      n.namaSiswa.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      n.guru.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      n.mapel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      n.kelas.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (n.nis && n.nis.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (n.materiJudul && n.materiJudul.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchKelas = selectedKelasFilter === 'all' || n.kelas === selectedKelasFilter;
-    const matchGuru = selectedGuruFilter === 'all' || n.guru.toLowerCase().includes(selectedGuruFilter.toLowerCase()) || selectedGuruFilter.toLowerCase().includes(n.guru.toLowerCase());
-    const matchMapel = selectedMapelFilter === 'all' || n.mapel.toLowerCase().includes(selectedMapelFilter.toLowerCase()) || selectedMapelFilter.toLowerCase().includes(n.mapel.toLowerCase());
-    const matchHari = selectedHariFilter === 'all' || n.hari === selectedHariFilter;
-    const matchTanggal = !selectedTanggalFilter || n.tanggal === selectedTanggalFilter;
-    const matchTahun = selectedTahunFilter === 'all' || (n.tanggal && n.tanggal.startsWith(selectedTahunFilter));
-    const isJenisMatch = (recordJenis: string, targetJenis: string) => {
-      if (!targetJenis || targetJenis === 'Semua' || targetJenis === 'all') return true;
-      if (!recordJenis) return false;
-      const r = recordJenis.toLowerCase();
-      const t = targetJenis.toLowerCase();
-      if (r === t) return true;
-      if (t.includes('formatif') && (r.includes('formatif') || r.includes('tugas') || r.includes('lkpd'))) return true;
-      if (t.includes('praktik') && (r.includes('praktik') || r.includes('unjuk') || r.includes('lab') || r.includes('studio'))) return true;
-      if (t.includes('sumatif') && (r.includes('sumatif') || r.includes('uh') || r.includes('sts') || r.includes('sas') || r.includes('pts') || r.includes('pas'))) return true;
-      return r.includes(t) || t.includes(r);
-    };
+  const filteredSupervisiList = useMemo(() => {
+    return safeSupervisiList.filter(s => {
+      const matchSearch = !appliedFilters.searchQuery ||
+        s.namaGuru?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        s.mapel?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        s.kelas?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        s.supervisor?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        s.nomorSupervisi?.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase());
+      const matchKelas = appliedFilters.kelas === 'all' || s.kelas === appliedFilters.kelas;
+      const matchGuru = appliedFilters.guru === 'all' || s.namaGuru === appliedFilters.guru;
+      const matchMapel = appliedFilters.mapel === 'all' || s.mapel === appliedFilters.mapel;
+      const matchHari = appliedFilters.hari === 'all' || (s.tanggal && new Date(s.tanggal).toLocaleDateString('id-ID', { weekday: 'long' }) === appliedFilters.hari);
+      return matchSearch && matchKelas && matchGuru && matchMapel && matchHari &&
+        matchTahunSemester(appliedFilters.tahunPelajaran, appliedFilters.semester) && matchDateRange(s.tanggal);
+    });
+  }, [safeSupervisiList, appliedFilters]);
 
-    const matchJenis = isJenisMatch(n.jenisAsesmen, selectedJenisAsesmenFilter);
-    const matchStatusNilai = selectedStatusNilaiFilter === 'all' || n.statusKelulusan === selectedStatusNilaiFilter;
-    return matchSearch && matchKelas && matchGuru && matchMapel && matchHari && matchTanggal && matchTahun && matchJenis && matchStatusNilai;
-  });
+  const filteredAbsentStudents = useMemo(() => {
+    return allAbsentStudents.filter(item => {
+      const matchSearch = !appliedFilters.searchQuery ||
+        item.nama.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        item.nis.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        item.kelas.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        item.alasan.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        item.mapelOrSumber.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        item.guruOrWali.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase());
+      const matchKelas = appliedFilters.kelas === 'all' || item.kelas === appliedFilters.kelas;
+      const matchStatus = appliedFilters.status === 'all' || item.kategori === appliedFilters.status;
+      const matchHari = appliedFilters.hari === 'all' || item.hari === appliedFilters.hari;
+      return matchSearch && matchKelas && matchStatus && matchHari &&
+        matchTahunSemester(appliedFilters.tahunPelajaran, appliedFilters.semester) && matchDateRange(item.tanggal);
+    });
+  }, [allAbsentStudents, appliedFilters]);
 
-  // Calculate statistics for absent list
+  const filteredNilaiList = useMemo(() => {
+    return safeNilaiList.filter(n => {
+      const matchSearch = !appliedFilters.searchQuery ||
+        n.namaSiswa.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        n.guru.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        n.mapel.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        n.kelas.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()) ||
+        (n.nis && n.nis.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase())) ||
+        (n.materiJudul && n.materiJudul.toLowerCase().includes(appliedFilters.searchQuery.toLowerCase()));
+      const matchKelas = appliedFilters.kelas === 'all' || n.kelas === appliedFilters.kelas;
+      const matchGuru = appliedFilters.guru === 'all' || n.guru.toLowerCase().includes(appliedFilters.guru.toLowerCase()) || appliedFilters.guru.toLowerCase().includes(n.guru.toLowerCase());
+      const matchMapel = appliedFilters.mapel === 'all' || n.mapel.toLowerCase().includes(appliedFilters.mapel.toLowerCase()) || appliedFilters.mapel.toLowerCase().includes(n.mapel.toLowerCase());
+      const matchHari = appliedFilters.hari === 'all' || n.hari === appliedFilters.hari;
+
+      const isJenisMatch = (recordJenis: string, targetJenis: string) => {
+        if (!targetJenis || targetJenis === 'Semua' || targetJenis === 'all') return true;
+        if (!recordJenis) return false;
+        const r = recordJenis.toLowerCase();
+        const t = targetJenis.toLowerCase();
+        if (r === t) return true;
+        if (t.includes('formatif') && (r.includes('formatif') || r.includes('tugas') || r.includes('lkpd'))) return true;
+        if (t.includes('praktik') && (r.includes('praktik') || r.includes('unjuk') || r.includes('lab') || r.includes('studio'))) return true;
+        if (t.includes('sumatif') && (r.includes('sumatif') || r.includes('uh') || r.includes('sts') || r.includes('sas') || r.includes('pts') || r.includes('pas'))) return true;
+        return r.includes(t) || t.includes(r);
+      };
+
+      const matchJenis = isJenisMatch(n.jenisAsesmen, appliedFilters.jenisAsesmen);
+      const matchStatusNilai = appliedFilters.statusNilai === 'all' || n.statusKelulusan === appliedFilters.statusNilai;
+      return matchSearch && matchKelas && matchGuru && matchMapel && matchHari && matchJenis && matchStatusNilai &&
+        matchTahunSemester(appliedFilters.tahunPelajaran, appliedFilters.semester) && matchDateRange(n.tanggal);
+    });
+  }, [safeNilaiList, appliedFilters]);
+
+  // Statistics for Agenda Guru
+  const totalJPGuru = useMemo(() => filteredGuruList.reduce((acc, curr) => acc + (curr.jumlahJP || 0), 0), [filteredGuruList]);
+  const avgKehadiranGuru = useMemo(() => {
+    if (filteredGuruList.length === 0) return 0;
+    const sum = filteredGuruList.reduce((acc, curr) => acc + (curr.persentaseKehadiran || 0), 0);
+    return Math.round(sum / filteredGuruList.length);
+  }, [filteredGuruList]);
+  const uniqueGuruCount = useMemo(() => new Set(filteredGuruList.map(g => g.namaGuru)).size, [filteredGuruList]);
+
+  // Statistics for Agenda Kelas
+  const totalHadirKelas = useMemo(() => filteredKelasList.reduce((acc, curr) => acc + (curr.hadir || 0), 0), [filteredKelasList]);
+  const totalAbsenKelas = useMemo(() => filteredKelasList.reduce((acc, curr) => acc + (curr.sakit || 0) + (curr.izin || 0) + (curr.alpa || 0), 0), [filteredKelasList]);
+  const avgKehadiranKelas = useMemo(() => {
+    if (filteredKelasList.length === 0) return 0;
+    const sum = filteredKelasList.reduce((acc, curr) => acc + (curr.persentase || 0), 0);
+    return Math.round(sum / filteredKelasList.length);
+  }, [filteredKelasList]);
+
+  // Statistics for Absent List
   const countSakit = filteredAbsentStudents.filter(s => s.kategori === 'Sakit').length;
   const countIzin = filteredAbsentStudents.filter(s => s.kategori === 'Izin').length;
   const countAlpa = filteredAbsentStudents.filter(s => s.kategori === 'Alpa').length;
@@ -560,14 +674,21 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     const sum = filteredNilaiList.reduce((acc, curr) => acc + (curr.nilaiAkhir || 0), 0);
     return Math.round(sum / filteredNilaiList.length);
   }, [filteredNilaiList]);
+  const totalTuntas = useMemo(() => filteredNilaiList.filter(n => n.statusKelulusan === 'Tuntas').length, [filteredNilaiList]);
+  const totalRemedial = useMemo(() => filteredNilaiList.filter(n => n.statusKelulusan === 'Remedial').length, [filteredNilaiList]);
+  const pctTuntas = useMemo(() => {
+    if (filteredNilaiList.length === 0) return 0;
+    return Math.round((totalTuntas / filteredNilaiList.length) * 100);
+  }, [filteredNilaiList, totalTuntas]);
 
-  const totalTuntas = useMemo(() => {
-    return filteredNilaiList.filter(n => n.statusKelulusan === 'Tuntas').length;
-  }, [filteredNilaiList]);
-
-  const totalRemedial = useMemo(() => {
-    return filteredNilaiList.filter(n => n.statusKelulusan === 'Remedial').length;
-  }, [filteredNilaiList]);
+  // Statistics for Supervisi List
+  const avgSkorSupervisi = useMemo(() => {
+    if (filteredSupervisiList.length === 0) return 0;
+    const sum = filteredSupervisiList.reduce((acc, curr) => acc + (curr.skorAkhir || 0), 0);
+    return Math.round(sum / filteredSupervisiList.length);
+  }, [filteredSupervisiList]);
+  const predikatBaikCount = useMemo(() => filteredSupervisiList.filter(s => s.predikat === 'Sangat Baik' || s.predikat === 'Baik').length, [filteredSupervisiList]);
+  const supervisiSelesaiCount = useMemo(() => filteredSupervisiList.filter(s => s.status === 'Selesai').length, [filteredSupervisiList]);
 
   // Print Preview Modal State
   const [previewModalOpen, setPreviewModalOpen] = useState<boolean>(false);
@@ -577,12 +698,20 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 
   const getAgendaGuruOptions = (): PrintReportOptions => ({
     title: 'LAPORAN REKAPITULASI AGENDA PEMBELAJARAN GURU',
-    subtitle: `Periode: ${periode.toUpperCase()} | Tahun Pelajaran ${setting.tahunPelajaran} (${setting.semester})`,
+    subtitle: `Periode: ${periode.toUpperCase()} | Tahun Pelajaran ${appliedFilters.tahunPelajaran} (${appliedFilters.semester})`,
     nomorDokumen: `REKAP-AG/${periode.toUpperCase()}/${new Date().getFullYear()}`,
     orientation: 'landscape',
+    paperSize: 'a4',
+    margin: 'normal',
+    summaryCards: [
+      { label: 'Total Catatan Agenda', value: `${filteredGuruList.length} Agenda`, color: '#0f766e' },
+      { label: 'Total Jam Pelajaran', value: `${totalJPGuru} JP`, color: '#0284c7' },
+      { label: 'Guru Terdata', value: `${uniqueGuruCount} Orang`, color: '#7c3aed' },
+      { label: 'Rata-rata Presensi Siswa', value: `${avgKehadiranGuru}%`, color: '#10b981' }
+    ],
     metadataGrid: [
       { label: 'Periode Laporan', value: periode.toUpperCase() },
-      { label: 'Tahun Pelajaran', value: `${setting.tahunPelajaran} (${setting.semester})` },
+      { label: 'Tahun Pelajaran', value: `${appliedFilters.tahunPelajaran} (${appliedFilters.semester})` },
       { label: 'Total Catatan Agenda', value: `${filteredGuruList.length} Record` },
       { label: 'Sekolah / Instansi', value: setting.namaSekolah || 'SMK NEGERI BOJONGGAMBIR' }
     ],
@@ -593,8 +722,8 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
       `${g.namaGuru}\n${g.mapel}`,
       `${g.kelas}\nJam ke ${g.jamKe}`,
       g.materi,
-      `Hadir: ${g.jumlahSiswaHadir || 0}, Sakit: ${g.jumlahSakit || 0}, Izin: ${g.jumlahIzin || 0}, Alpa: ${g.jumlahAlpa || 0}`,
-      g.keterangan || '-'
+      `Hadir: ${g.hadir || 0}, Sakit: ${g.sakit || 0}, Izin: ${g.izin || 0}, Alpa: ${g.alpa || 0}`,
+      g.catatanWakasek || g.kendala || '-'
     ]),
     alignments: ['center', 'center', 'left', 'center', 'left', 'left', 'left'],
     signLeft: {
@@ -602,21 +731,34 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
       nama: setting.kepalaSekolah || 'Iman Rahmat, S.Pd.I.',
       nip: setting.nipKepalaSekolah || '-'
     },
-    signRight: {
+    signCenter: {
       role: 'Wakasek Bidang Kurikulum',
       nama: setting.wakasekKurikulum || 'Wahab Mughni Sa\'dillah, S.Pd.',
       nip: setting.nipWakasekKurikulum || '-'
+    },
+    signRight: {
+      role: 'Guru Pengampu / Penilai,',
+      nama: appliedFilters.guru !== 'all' ? appliedFilters.guru : (filteredGuruList[0]?.namaGuru || 'Guru Pengampu'),
+      nip: filteredGuruList[0]?.nip || '-'
     }
   });
 
   const getAgendaKelasOptions = (): PrintReportOptions => ({
     title: 'LAPORAN REKAPITULASI JURNAL & AGENDA KELAS',
-    subtitle: `Periode: ${periode.toUpperCase()} | Tahun Pelajaran ${setting.tahunPelajaran} (${setting.semester})`,
+    subtitle: `Periode: ${periode.toUpperCase()} | Tahun Pelajaran ${appliedFilters.tahunPelajaran} (${appliedFilters.semester})`,
     nomorDokumen: `REKAP-AK/${periode.toUpperCase()}/${new Date().getFullYear()}`,
     orientation: 'landscape',
+    paperSize: 'a4',
+    margin: 'normal',
+    summaryCards: [
+      { label: 'Total Jurnal Kelas', value: `${filteredKelasList.length} Lembar`, color: '#4f46e5' },
+      { label: 'Rata-rata Presensi', value: `${avgKehadiranKelas}%`, color: '#10b981' },
+      { label: 'Total Siswa Hadir', value: `${totalHadirKelas} Siswa`, color: '#0f766e' },
+      { label: 'Siswa Tidak Hadir (S/I/A)', value: `${totalAbsenKelas} Siswa`, color: '#f59e0b' }
+    ],
     metadataGrid: [
       { label: 'Periode Laporan', value: periode.toUpperCase() },
-      { label: 'Tahun Pelajaran', value: `${setting.tahunPelajaran} (${setting.semester})` },
+      { label: 'Tahun Pelajaran', value: `${appliedFilters.tahunPelajaran} (${appliedFilters.semester})` },
       { label: 'Total Jurnal Kelas', value: `${filteredKelasList.length} Record` },
       { label: 'Sekolah / Instansi', value: setting.namaSekolah || 'SMK NEGERI BOJONGGAMBIR' }
     ],
@@ -624,11 +766,11 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     rows: filteredKelasList.map((k, idx) => [
       idx + 1,
       `${k.tanggal}\n(${k.hari})`,
-      `${k.kelas}\n${k.mapel}`,
-      k.namaGuru,
-      k.materi,
+      `${k.kelas}\n${k.monitoringPembelajaran?.[0]?.mapel || 'KBM Reguler'}`,
+      k.monitoringPembelajaran?.map(m => m.guru).filter(Boolean).join(', ') || k.waliKelas,
+      k.monitoringPembelajaran?.map(m => m.materi).filter(Boolean).join('; ') || 'Kegiatan Pembelajaran Kelas',
       (k.siswaTidakHadir || []).map(s => `${s.nama} (${s.kategori})`).join(', ') || 'Nihil',
-      k.keterangan || '-'
+      k.catatanWaliKelas?.kondisiUmum || '-'
     ]),
     alignments: ['center', 'center', 'left', 'left', 'left', 'left', 'left'],
     signLeft: {
@@ -636,21 +778,34 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
       nama: setting.kepalaSekolah || 'Iman Rahmat, S.Pd.I.',
       nip: setting.nipKepalaSekolah || '-'
     },
-    signRight: {
+    signCenter: {
       role: 'Wakasek Bidang Kurikulum',
       nama: setting.wakasekKurikulum || 'Wahab Mughni Sa\'dillah, S.Pd.',
       nip: setting.nipWakasekKurikulum || '-'
+    },
+    signRight: {
+      role: 'Wali Kelas,',
+      nama: filteredKelasList[0]?.waliKelas || 'Wali Kelas',
+      nip: '-'
     }
   });
 
   const getSupervisiOptions = (): PrintReportOptions => ({
     title: 'LAPORAN REKAPITULASI MONITORING & SUPERVISI AKADEMIK',
-    subtitle: `Tahun Pelajaran ${setting.tahunPelajaran} (${setting.semester})`,
+    subtitle: `Tahun Pelajaran ${appliedFilters.tahunPelajaran} (${appliedFilters.semester})`,
     nomorDokumen: `REKAP-SUP/${new Date().getFullYear()}`,
     orientation: 'landscape',
+    paperSize: 'a4',
+    margin: 'normal',
+    summaryCards: [
+      { label: 'Total Rekap Supervisi', value: `${filteredSupervisiList.length} Guru`, color: '#7c3aed' },
+      { label: 'Rata-rata Skor Akhir', value: `${avgSkorSupervisi} / 100`, color: '#0f766e' },
+      { label: 'Predikat Baik & Unggul', value: `${predikatBaikCount} Guru`, color: '#10b981' },
+      { label: 'Supervisi Selesai', value: `${supervisiSelesaiCount} Guru`, color: '#0284c7' }
+    ],
     metadataGrid: [
       { label: 'Jenis Laporan', value: 'Supervisi Akademik Guru' },
-      { label: 'Tahun Pelajaran', value: `${setting.tahunPelajaran} (${setting.semester})` },
+      { label: 'Tahun Pelajaran', value: `${appliedFilters.tahunPelajaran} (${appliedFilters.semester})` },
       { label: 'Total Rekap Supervisi', value: `${filteredSupervisiList.length} Guru` },
       { label: 'Sekolah / Instansi', value: setting.namaSekolah || 'SMK NEGERI BOJONGGAMBIR' }
     ],
@@ -658,18 +813,23 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     rows: filteredSupervisiList.map((s, idx) => [
       idx + 1,
       s.tanggal,
-      `${s.namaGuru}\nNIP: ${s.nipGuru || '-'}`,
+      `${s.namaGuru}\nNIP: ${s.nip || '-'}`,
       `${s.mapel}\n(${s.kelas})`,
-      s.skorTotal || 0,
-      s.nilaiAkhir || 0,
+      (s.skorPerencanaan || 0) + (s.skorPelaksanaan || 0) + (s.skorEvaluasi || 0),
+      s.skorAkhir || 0,
       s.predikat || 'Sangat Baik',
-      s.catatanRekomendasi || '-'
+      s.rekomendasi || s.catatanSupervisor || '-'
     ]),
     alignments: ['center', 'center', 'left', 'center', 'center', 'center', 'center', 'left'],
     signLeft: {
       role: 'Mengetahui,\nKepala Sekolah',
       nama: setting.kepalaSekolah || 'Iman Rahmat, S.Pd.I.',
       nip: setting.nipKepalaSekolah || '-'
+    },
+    signCenter: {
+      role: 'Wakasek Bidang Kurikulum',
+      nama: setting.wakasekKurikulum || 'Wahab Mughni Sa\'dillah, S.Pd.',
+      nip: setting.nipWakasekKurikulum || '-'
     },
     signRight: {
       role: 'Supervisor / Tim Penilai',
@@ -679,22 +839,30 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
   });
 
   const getNilaiOptions = (): PrintReportOptions => {
-    const activeGuruName = selectedGuruFilter !== 'all' ? selectedGuruFilter : (filteredNilaiList[0]?.guru || 'Guru Pengampu');
+    const activeGuruName = appliedFilters.guru !== 'all' ? appliedFilters.guru : (filteredNilaiList[0]?.guru || 'Guru Pengampu');
     const matchedGuruObj = (guruList || []).find(g => (g.nama || '').toLowerCase() === activeGuruName.toLowerCase() || (g.nama || '').includes(activeGuruName));
     const activeGuruNip = matchedGuruObj?.nip || '-';
-    const activeMapelName = selectedMapelFilter !== 'all' ? selectedMapelFilter : (filteredNilaiList[0]?.mapel || 'Mata Pelajaran');
-    const activeKelasName = selectedKelasFilter !== 'all' ? selectedKelasFilter : 'Semua Kelas';
+    const activeMapelName = appliedFilters.mapel !== 'all' ? appliedFilters.mapel : (filteredNilaiList[0]?.mapel || 'Mata Pelajaran');
+    const activeKelasName = appliedFilters.kelas !== 'all' ? appliedFilters.kelas : 'Semua Kelas';
 
     return {
       title: 'LAPORAN REKAPITULASI ASESMEN & NILAI SISWA PER GURU & PER MAPEL',
       subtitle: `MATA PELAJARAN: ${activeMapelName.toUpperCase()} | GURU: ${activeGuruName.toUpperCase()} | KELAS: ${activeKelasName.toUpperCase()}`,
       nomorDokumen: `REKAP-NILAI/${new Date().getFullYear()}`,
       orientation: 'landscape',
+      paperSize: 'a4',
+      margin: 'normal',
+      summaryCards: [
+        { label: 'Total Siswa Dinilai', value: `${filteredNilaiList.length} Siswa`, color: '#d97706' },
+        { label: 'Rata-rata Nilai Akhir', value: `${avgNilaiAkhir} / 100`, color: '#0f766e' },
+        { label: 'Siswa Tuntas', value: `${totalTuntas} Siswa`, color: '#10b981' },
+        { label: 'Siswa Remedial', value: `${totalRemedial} Siswa`, color: '#e11d48' }
+      ],
       metadataGrid: [
         { label: 'Mata Pelajaran', value: activeMapelName },
         { label: 'Guru Pengampu', value: `${activeGuruName} (NIP: ${activeGuruNip})` },
         { label: 'Rombel / Kelas', value: activeKelasName },
-        { label: 'Tahun Pelajaran', value: `${setting.tahunPelajaran} (${setting.semester})` },
+        { label: 'Tahun Pelajaran', value: `${appliedFilters.tahunPelajaran} (${appliedFilters.semester})` },
         { label: 'Rata-rata Nilai Akhir', value: `${avgNilaiAkhir} / 100` },
         { label: 'Ketuntasan Siswa', value: `${totalTuntas} Tuntas (${totalRemedial} Remedial)` }
       ],
@@ -708,7 +876,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
         n.guru,
         n.jenisAsesmen,
         n.nilaiFormatif || 0,
-        n.nilaiPraktik || n.nilaiSumatif || 0,
+        n.nilaiPraktik || 0,
         n.nilaiAkhir || 0,
         n.statusKelulusan || 'Tuntas'
       ]),
@@ -717,6 +885,11 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
         role: 'Mengetahui,\nKepala Sekolah',
         nama: setting.kepalaSekolah || 'Iman Rahmat, S.Pd.I.',
         nip: setting.nipKepalaSekolah || '-'
+      },
+      signCenter: {
+        role: 'Wakasek Bidang Kurikulum',
+        nama: setting.wakasekKurikulum || 'Wahab Mughni Sa\'dillah, S.Pd.',
+        nip: setting.nipWakasekKurikulum || '-'
       },
       signRight: {
         role: 'Guru Mata Pelajaran,',
@@ -728,12 +901,20 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 
   const getAbsensiTidakHadirOptions = (): PrintReportOptions => ({
     title: 'LAPORAN REKAPITULASI KETIDAKHADIRAN SISWA (SAKIT, IZIN, ALPA)',
-    subtitle: `Periode: ${periode.toUpperCase()} | Tahun Pelajaran ${setting.tahunPelajaran} (${setting.semester})`,
+    subtitle: `Periode: ${periode.toUpperCase()} | Tahun Pelajaran ${appliedFilters.tahunPelajaran} (${appliedFilters.semester})`,
     nomorDokumen: `REKAP-PRESENSI/${periode.toUpperCase()}/${new Date().getFullYear()}`,
     orientation: 'landscape',
+    paperSize: 'a4',
+    margin: 'normal',
+    summaryCards: [
+      { label: 'Total Ketidakhadiran', value: `${filteredAbsentStudents.length} Siswa`, color: '#e11d48' },
+      { label: 'Sakit', value: `${countSakit} Siswa`, color: '#f59e0b' },
+      { label: 'Izin', value: `${countIzin} Siswa`, color: '#0284c7' },
+      { label: 'Alpa (Tanpa Keterangan)', value: `${countAlpa} Siswa`, color: '#dc2626' }
+    ],
     metadataGrid: [
       { label: 'Periode Laporan', value: periode.toUpperCase() },
-      { label: 'Tahun Pelajaran', value: `${setting.tahunPelajaran} (${setting.semester})` },
+      { label: 'Tahun Pelajaran', value: `${appliedFilters.tahunPelajaran} (${appliedFilters.semester})` },
       { label: 'Total Catatan', value: `${filteredAbsentStudents.length} Siswa` },
       { label: 'Rincian Status', value: `Sakit: ${countSakit} | Izin: ${countIzin} | Alpa: ${countAlpa} | Terlambat: ${countTerlambat}` }
     ],
@@ -755,6 +936,11 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
       nama: setting.kepalaSekolah || 'Iman Rahmat, S.Pd.I.',
       nip: setting.nipKepalaSekolah || '-'
     },
+    signCenter: {
+      role: 'Wakasek Bidang Kurikulum',
+      nama: setting.wakasekKurikulum || 'Wahab Mughni Sa\'dillah, S.Pd.',
+      nip: setting.nipWakasekKurikulum || '-'
+    },
     signRight: {
       role: 'Guru / Wali Kelas,',
       nama: setting.wakasekKurikulum || 'Wahab Mughni Sa\'dillah, S.Pd.',
@@ -773,30 +959,97 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     setPreviewModalOpen(true);
   };
 
-  // Handlers for HTML Browser Printing & PDF Conversion
-  const handlePrintAgendaGuruHTML = () => printHtmlReport(setting, getAgendaGuruOptions());
-  const handlePrintAgendaKelasHTML = () => printHtmlReport(setting, getAgendaKelasOptions());
-  const handlePrintSupervisiHTML = () => printHtmlReport(setting, getSupervisiOptions());
-  const handlePrintNilaiHTML = () => printHtmlReport(setting, getNilaiOptions());
-  const handlePrintAbsensiTidakHadirHTML = () => printHtmlReport(setting, getAbsensiTidakHadirOptions());
+  // Handlers for HTML Browser Printing & PDF Conversion with Empty Guard
+  const handlePrintAgendaGuruHTML = () => {
+    if (!checkHasData(filteredGuruList.length, 'Agenda Guru')) return;
+    printHtmlReport(setting, getAgendaGuruOptions());
+  };
+  const handlePrintAgendaKelasHTML = () => {
+    if (!checkHasData(filteredKelasList.length, 'Agenda Kelas')) return;
+    printHtmlReport(setting, getAgendaKelasOptions());
+  };
+  const handlePrintSupervisiHTML = () => {
+    if (!checkHasData(filteredSupervisiList.length, 'Supervisi Akademik')) return;
+    printHtmlReport(setting, getSupervisiOptions());
+  };
+  const handlePrintNilaiHTML = () => {
+    if (!checkHasData(filteredNilaiList.length, 'Laporan Nilai Guru')) return;
+    printHtmlReport(setting, getNilaiOptions());
+  };
+  const handlePrintAbsensiTidakHadirHTML = () => {
+    if (!checkHasData(filteredAbsentStudents.length, 'Ketidakhadiran Siswa')) return;
+    printHtmlReport(setting, getAbsensiTidakHadirOptions());
+  };
 
-  // Centralized Export to PDF for active category table
+  // Centralized Export to PDF for active category table with Empty Guard
   const handleExportActiveTableToPDF = () => {
     if (activeCategory === 'guru') {
+      if (!checkHasData(filteredGuruList.length, 'Agenda Guru')) return;
       generateRekapAgendaGuruPDF(filteredGuruList, setting, periode);
     } else if (activeCategory === 'kelas') {
+      if (!checkHasData(filteredKelasList.length, 'Agenda Kelas')) return;
       generateRekapAgendaKelasPDF(filteredKelasList, setting, periode);
     } else if (activeCategory === 'presensi') {
+      if (!checkHasData(filteredAbsentStudents.length, 'Ketidakhadiran Siswa')) return;
       generateAbsentStudentsPDF(filteredAbsentStudents, setting, periode);
     } else if (activeCategory === 'nilai') {
+      if (!checkHasData(filteredNilaiList.length, 'Laporan Nilai Guru')) return;
       generateRekapNilaiSiswaPDF(filteredNilaiList, setting, periode);
     } else if (activeCategory === 'supervisi') {
+      if (!checkHasData(filteredSupervisiList.length, 'Supervisi Akademik')) return;
       generateRekapSupervisiPDF(filteredSupervisiList, setting, periode);
     } else {
+      if (!checkHasData(filteredAbsentStudents.length, 'Ketidakhadiran Siswa')) return;
       generateAbsentStudentsPDF(filteredAbsentStudents, setting, periode);
     }
     setExportSuccessNotice(`Dokumen PDF Laporan Modul ${activeCategory.toUpperCase()} berhasil dikonversi dengan Kop Surat & diunduh!`);
     setTimeout(() => setExportSuccessNotice(null), 5000);
+  };
+
+  const handlePreviewActiveReport = () => {
+    if (activeCategory === 'guru') {
+      if (!checkHasData(filteredGuruList.length, 'Agenda Guru')) return;
+      openPreviewModal(getAgendaGuruOptions(), () => generateRekapAgendaGuruPDF(filteredGuruList, setting, periode), () => exportAgendaGuruToExcel(filteredGuruList));
+    } else if (activeCategory === 'kelas') {
+      if (!checkHasData(filteredKelasList.length, 'Agenda Kelas')) return;
+      openPreviewModal(getAgendaKelasOptions(), () => generateRekapAgendaKelasPDF(filteredKelasList, setting, periode), () => exportAgendaKelasToExcel(filteredKelasList));
+    } else if (activeCategory === 'presensi') {
+      if (!checkHasData(filteredAbsentStudents.length, 'Ketidakhadiran Siswa')) return;
+      openPreviewModal(getAbsensiTidakHadirOptions(), () => generateAbsentStudentsPDF(filteredAbsentStudents, setting, periode));
+    } else if (activeCategory === 'nilai') {
+      if (!checkHasData(filteredNilaiList.length, 'Laporan Nilai Guru')) return;
+      openPreviewModal(getNilaiOptions(), () => generateRekapNilaiSiswaPDF(filteredNilaiList, setting, periode), () => exportNilaiToExcel(filteredNilaiList));
+    } else if (activeCategory === 'supervisi') {
+      if (!checkHasData(filteredSupervisiList.length, 'Supervisi Akademik')) return;
+      openPreviewModal(getSupervisiOptions(), () => generateRekapSupervisiPDF(filteredSupervisiList, setting, periode), () => exportSupervisiToExcel(filteredSupervisiList));
+    }
+  };
+
+  const handlePrintActiveReport = () => {
+    if (activeCategory === 'guru') handlePrintAgendaGuruHTML();
+    else if (activeCategory === 'kelas') handlePrintAgendaKelasHTML();
+    else if (activeCategory === 'presensi') handlePrintAbsensiTidakHadirHTML();
+    else if (activeCategory === 'nilai') handlePrintNilaiHTML();
+    else if (activeCategory === 'supervisi') handlePrintSupervisiHTML();
+  };
+
+  const handleExportActiveExcel = () => {
+    if (activeCategory === 'guru') {
+      if (!checkHasData(filteredGuruList.length, 'Agenda Guru')) return;
+      exportAgendaGuruToExcel(filteredGuruList);
+    } else if (activeCategory === 'kelas') {
+      if (!checkHasData(filteredKelasList.length, 'Agenda Kelas')) return;
+      exportAgendaKelasToExcel(filteredKelasList);
+    } else if (activeCategory === 'presensi') {
+      if (!checkHasData(filteredAbsentStudents.length, 'Ketidakhadiran Siswa')) return;
+      handleExportAllExcel();
+    } else if (activeCategory === 'nilai') {
+      if (!checkHasData(filteredNilaiList.length, 'Laporan Nilai Guru')) return;
+      exportNilaiToExcel(filteredNilaiList);
+    } else if (activeCategory === 'supervisi') {
+      if (!checkHasData(filteredSupervisiList.length, 'Supervisi Akademik')) return;
+      exportSupervisiToExcel(filteredSupervisiList);
+    }
   };
 
   return (
@@ -1004,34 +1257,43 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200 dark:border-slate-800">
             <button
-              onClick={() => openPreviewModal(
-                getAgendaGuruOptions(),
-                () => generateRekapAgendaGuruPDF(filteredGuruList, setting, periode),
-                () => exportAgendaGuruToExcel(safeGuruList)
-              )}
-              className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-teal-600 px-2.5 py-2 text-xs font-bold text-white hover:bg-teal-700 shadow-xs transition"
+              onClick={() => {
+                if (!checkHasData(filteredGuruList.length, 'Rekap Agenda Guru')) return;
+                openPreviewModal(
+                  getAgendaGuruOptions(),
+                  () => generateRekapAgendaGuruPDF(filteredGuruList, setting, periode),
+                  () => exportAgendaGuruToExcel(filteredGuruList)
+                );
+              }}
+              className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-teal-600 px-2.5 py-2 text-xs font-bold text-white hover:bg-teal-700 shadow-xs transition cursor-pointer"
               title="Pratinjau Cetak A4"
             >
               <Eye className="h-3.5 w-3.5" />
               <span>Pratinjau A4</span>
             </button>
             <button
-              onClick={() => generateRekapAgendaGuruPDF(filteredGuruList, setting, periode)}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              onClick={() => {
+                if (!checkHasData(filteredGuruList.length, 'Rekap Agenda Guru')) return;
+                generateRekapAgendaGuruPDF(filteredGuruList, setting, periode);
+              }}
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Unduh PDF Resmi"
             >
               <Download className="h-3.5 w-3.5 text-teal-600" />
             </button>
             <button
               onClick={handlePrintAgendaGuruHTML}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Cetak HTML Browser"
             >
               <Printer className="h-3.5 w-3.5 text-teal-600" />
             </button>
             <button
-              onClick={() => exportAgendaGuruToExcel(safeGuruList)}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              onClick={() => {
+                if (!checkHasData(filteredGuruList.length, 'Agenda Guru')) return;
+                exportAgendaGuruToExcel(filteredGuruList);
+              }}
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Export Excel Agenda Guru"
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
@@ -1064,34 +1326,43 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200 dark:border-slate-800">
             <button
-              onClick={() => openPreviewModal(
-                getAgendaKelasOptions(),
-                () => generateRekapAgendaKelasPDF(filteredKelasList, setting, periode),
-                () => exportAgendaKelasToExcel(safeKelasList)
-              )}
-              className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-indigo-600 px-2.5 py-2 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs transition"
+              onClick={() => {
+                if (!checkHasData(filteredKelasList.length, 'Rekap Agenda Kelas')) return;
+                openPreviewModal(
+                  getAgendaKelasOptions(),
+                  () => generateRekapAgendaKelasPDF(filteredKelasList, setting, periode),
+                  () => exportAgendaKelasToExcel(filteredKelasList)
+                );
+              }}
+              className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-indigo-600 px-2.5 py-2 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs transition cursor-pointer"
               title="Pratinjau Cetak A4"
             >
               <Eye className="h-3.5 w-3.5" />
               <span>Pratinjau A4</span>
             </button>
             <button
-              onClick={() => generateRekapAgendaKelasPDF(filteredKelasList, setting, periode)}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              onClick={() => {
+                if (!checkHasData(filteredKelasList.length, 'Rekap Agenda Kelas')) return;
+                generateRekapAgendaKelasPDF(filteredKelasList, setting, periode);
+              }}
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Unduh PDF Resmi"
             >
               <Download className="h-3.5 w-3.5 text-indigo-600" />
             </button>
             <button
               onClick={handlePrintAgendaKelasHTML}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Cetak HTML Browser"
             >
               <Printer className="h-3.5 w-3.5 text-indigo-600" />
             </button>
             <button
-              onClick={() => exportAgendaKelasToExcel(safeKelasList)}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              onClick={() => {
+                if (!checkHasData(filteredKelasList.length, 'Agenda Kelas')) return;
+                exportAgendaKelasToExcel(filteredKelasList);
+              }}
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Export Excel Agenda Kelas"
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
@@ -1124,34 +1395,43 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200 dark:border-slate-800">
             <button
-              onClick={() => openPreviewModal(
-                getSupervisiOptions(),
-                () => generateRekapSupervisiPDF(filteredSupervisiList, setting, periode),
-                () => exportSupervisiToExcel(safeSupervisiList)
-              )}
-              className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-purple-600 px-2.5 py-2 text-xs font-bold text-white hover:bg-purple-700 shadow-xs transition"
+              onClick={() => {
+                if (!checkHasData(filteredSupervisiList.length, 'Supervisi Akademik')) return;
+                openPreviewModal(
+                  getSupervisiOptions(),
+                  () => generateRekapSupervisiPDF(filteredSupervisiList, setting, periode),
+                  () => exportSupervisiToExcel(filteredSupervisiList)
+                );
+              }}
+              className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-purple-600 px-2.5 py-2 text-xs font-bold text-white hover:bg-purple-700 shadow-xs transition cursor-pointer"
               title="Pratinjau Cetak A4"
             >
               <Eye className="h-3.5 w-3.5" />
               <span>Pratinjau A4</span>
             </button>
             <button
-              onClick={() => generateRekapSupervisiPDF(filteredSupervisiList, setting, periode)}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              onClick={() => {
+                if (!checkHasData(filteredSupervisiList.length, 'Supervisi Akademik')) return;
+                generateRekapSupervisiPDF(filteredSupervisiList, setting, periode);
+              }}
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Unduh PDF Resmi"
             >
               <Download className="h-3.5 w-3.5 text-purple-600" />
             </button>
             <button
               onClick={handlePrintSupervisiHTML}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Cetak HTML Browser"
             >
               <Printer className="h-3.5 w-3.5 text-purple-600" />
             </button>
             <button
-              onClick={() => exportSupervisiToExcel(safeSupervisiList)}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              onClick={() => {
+                if (!checkHasData(filteredSupervisiList.length, 'Supervisi Akademik')) return;
+                exportSupervisiToExcel(filteredSupervisiList);
+              }}
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Export Excel Supervisi"
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
@@ -1184,34 +1464,43 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200 dark:border-slate-800">
             <button
-              onClick={() => openPreviewModal(
-                getNilaiOptions(),
-                () => generateRekapNilaiSiswaPDF(filteredNilaiList, setting, periode),
-                () => exportNilaiToExcel(filteredNilaiList)
-              )}
-              className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-amber-600 px-2.5 py-2 text-xs font-bold text-white hover:bg-amber-700 shadow-xs transition"
+              onClick={() => {
+                if (!checkHasData(filteredNilaiList.length, 'Laporan Nilai Guru')) return;
+                openPreviewModal(
+                  getNilaiOptions(),
+                  () => generateRekapNilaiSiswaPDF(filteredNilaiList, setting, periode),
+                  () => exportNilaiToExcel(filteredNilaiList)
+                );
+              }}
+              className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-amber-600 px-2.5 py-2 text-xs font-bold text-white hover:bg-amber-700 shadow-xs transition cursor-pointer"
               title="Pratinjau Cetak A4"
             >
               <Eye className="h-3.5 w-3.5" />
               <span>Pratinjau A4</span>
             </button>
             <button
-              onClick={() => generateRekapNilaiSiswaPDF(filteredNilaiList, setting, periode)}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              onClick={() => {
+                if (!checkHasData(filteredNilaiList.length, 'Laporan Nilai Guru')) return;
+                generateRekapNilaiSiswaPDF(filteredNilaiList, setting, periode);
+              }}
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Unduh PDF Resmi"
             >
               <Download className="h-3.5 w-3.5 text-amber-600" />
             </button>
             <button
               onClick={handlePrintNilaiHTML}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Cetak HTML Browser"
             >
               <Printer className="h-3.5 w-3.5 text-amber-600" />
             </button>
             <button
-              onClick={() => exportNilaiToExcel(filteredNilaiList)}
-              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              onClick={() => {
+                if (!checkHasData(filteredNilaiList.length, 'Laporan Nilai Guru')) return;
+                exportNilaiToExcel(filteredNilaiList);
+              }}
+              className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
               title="Export Excel Laporan Nilai"
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
@@ -1222,18 +1511,26 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 
       {/* Detailed Individual Document Download Table Section */}
       <div className="space-y-4 pt-2">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
-          {/* Category Tabs */}
-          <div className="flex flex-wrap rounded-xl bg-slate-200/80 dark:bg-slate-900 p-1 gap-0.5">
+        {/* 1. Category Selection Tabs */}
+        <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <FileSpreadsheet className="h-4 w-4 text-teal-600" />
+              <span>1. Pilih Jenis Laporan</span>
+            </span>
+            <span className="text-[11px] text-slate-500 font-medium">Klik jenis laporan untuk membuka data & opsi cetak</span>
+          </div>
+
+          <div className="flex flex-wrap rounded-xl bg-slate-200/80 dark:bg-slate-900 p-1 gap-1">
             <button
               onClick={() => setActiveCategory('guru')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeCategory === 'guru' ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeCategory === 'guru' ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-xs' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
             >
               Agenda Guru ({safeGuruList.length})
             </button>
             <button
               onClick={() => setActiveCategory('kelas')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeCategory === 'kelas' ? 'bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeCategory === 'kelas' ? 'bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
             >
               Agenda Kelas ({safeKelasList.length})
             </button>
@@ -1260,171 +1557,450 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
             </button>
             <button
               onClick={() => setActiveCategory('supervisi')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeCategory === 'supervisi' ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeCategory === 'supervisi' ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-xs' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
             >
               Supervisi ({safeSupervisiList.length})
             </button>
           </div>
+        </div>
 
-          {/* Filters Bar: Hari, Tanggal, Tahun, Kelas, Status & Search Box */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Filter Hari */}
-            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-              <Calendar className="h-3.5 w-3.5 text-teal-600 shrink-0" />
-              <select
-                value={selectedHariFilter}
-                onChange={(e) => setSelectedHariFilter(e.target.value)}
-                className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-              >
-                <option value="all">Semua Hari</option>
-                <option value="Senin">Senin</option>
-                <option value="Selasa">Selasa</option>
-                <option value="Rabu">Rabu</option>
-                <option value="Kamis">Kamis</option>
-                <option value="Jumat">Jumat</option>
-                <option value="Sabtu">Sabtu</option>
-                <option value="Minggu">Minggu</option>
-              </select>
+        {/* 2. Staged Filter & Universal Action Bar */}
+        {activeCategory !== 'rekap_absensi' && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 shadow-xs">
+            {/* Top: Section Title & Filter Status */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  2. Atur Filter Laporan ({activeCategory.replace('_', ' ').toUpperCase()})
+                </h3>
+                {JSON.stringify(stagedFilters) !== JSON.stringify(appliedFilters) && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 animate-pulse border border-amber-300 dark:border-amber-800">
+                    Filter Berubah (Klik Terapkan)
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-slate-500 font-medium">
+                Alur: Atur Filter ➜ <b>Terapkan Filter</b> ➜ Pratinjau ➜ Cetak / Download
+              </span>
             </div>
 
-            {/* Filter Tanggal Specific */}
-            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-              <span className="font-bold text-slate-400">Tgl:</span>
-              <input
-                type="date"
-                value={selectedTanggalFilter}
-                onChange={(e) => setSelectedTanggalFilter(e.target.value)}
-                className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer text-xs"
-              />
-              {selectedTanggalFilter && (
-                <button onClick={() => setSelectedTanggalFilter('')} className="text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
-              )}
-            </div>
-
-            {/* Filter Tahun */}
-            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-              <span className="font-bold text-slate-400">Tahun:</span>
-              <select
-                value={selectedTahunFilter}
-                onChange={(e) => setSelectedTahunFilter(e.target.value)}
-                className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-              >
-                <option value="all">Semua Tahun</option>
-                <option value="2026/2027">2026/2027</option>
-                <option value="2025/2026">2025/2026</option>
-                <option value="2027/2028">2027/2028</option>
-                <option value="2026">Tahun 2026</option>
-                <option value="2025">Tahun 2025</option>
-              </select>
-            </div>
-
-            {/* Filter Kelas */}
-            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-              <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              <select
-                value={selectedKelasFilter}
-                onChange={(e) => setSelectedKelasFilter(e.target.value)}
-                className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-              >
-                <option value="all">Semua Kelas</option>
-                {availableKelasOptions.map(cls => (
-                  <option key={cls} value={cls}>{cls}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filter Status (Only active if presensi) */}
-            {activeCategory === 'presensi' && (
-              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-                <span className="font-bold text-slate-400">Status:</span>
+            {/* Form Grid: Inputs bound to stagedFilters */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 text-xs">
+              {/* Tahun Pelajaran */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Tahun Pelajaran</label>
                 <select
-                  value={selectedStatusFilter}
-                  onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  value={stagedFilters.tahunPelajaran}
+                  onChange={(e) => setStagedFilters(prev => ({ ...prev, tahunPelajaran: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none"
                 >
-                  <option value="all">Semua Ketidakhadiran</option>
-                  <option value="Sakit">Sakit</option>
-                  <option value="Izin">Izin</option>
-                  <option value="Alpa">Alpa</option>
-                  <option value="Terlambat">Terlambat</option>
+                  <option value="all">Semua Tahun</option>
+                  <option value="2026/2027">2026/2027</option>
+                  <option value="2025/2026">2025/2026</option>
+                  <option value="2027/2028">2027/2028</option>
+                  <option value="2026">2026</option>
+                  <option value="2025">2025</option>
                 </select>
+              </div>
+
+              {/* Semester */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Semester</label>
+                <select
+                  value={stagedFilters.semester}
+                  onChange={(e) => setStagedFilters(prev => ({ ...prev, semester: e.target.value as 'Ganjil' | 'Genap' | 'all' }))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none"
+                >
+                  <option value="all">Semua Semester</option>
+                  <option value="Ganjil">Semester Ganjil</option>
+                  <option value="Genap">Semester Genap</option>
+                </select>
+              </div>
+
+              {/* Hari */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Hari</label>
+                <select
+                  value={stagedFilters.hari}
+                  onChange={(e) => setStagedFilters(prev => ({ ...prev, hari: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none"
+                >
+                  <option value="all">Semua Hari</option>
+                  <option value="Senin">Senin</option>
+                  <option value="Selasa">Selasa</option>
+                  <option value="Rabu">Rabu</option>
+                  <option value="Kamis">Kamis</option>
+                  <option value="Jumat">Jumat</option>
+                  <option value="Sabtu">Sabtu</option>
+                  <option value="Minggu">Minggu</option>
+                </select>
+              </div>
+
+              {/* Tanggal Mulai */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Tgl Mulai</label>
+                <input
+                  type="date"
+                  value={stagedFilters.tanggalMulai}
+                  onChange={(e) => setStagedFilters(prev => ({ ...prev, tanggalMulai: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none text-xs"
+                />
+              </div>
+
+              {/* Tanggal Selesai */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Tgl Selesai</label>
+                <input
+                  type="date"
+                  value={stagedFilters.tanggalSelesai}
+                  onChange={(e) => setStagedFilters(prev => ({ ...prev, tanggalSelesai: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none text-xs"
+                />
+              </div>
+
+              {/* Kelas */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Kelas</label>
+                <select
+                  value={stagedFilters.kelas}
+                  onChange={(e) => setStagedFilters(prev => ({ ...prev, kelas: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none"
+                >
+                  <option value="all">Semua Kelas</option>
+                  {availableKelasOptions.map(cls => (
+                    <option key={cls} value={cls}>{cls}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Guru */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Guru Pengampu</label>
+                <select
+                  value={stagedFilters.guru}
+                  onChange={(e) => setStagedFilters(prev => ({ ...prev, guru: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none truncate"
+                >
+                  <option value="all">Semua Guru</option>
+                  {availableGuruOptions.map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Mapel */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Mata Pelajaran</label>
+                <select
+                  value={stagedFilters.mapel}
+                  onChange={(e) => setStagedFilters(prev => ({ ...prev, mapel: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none truncate"
+                >
+                  <option value="all">Semua Mapel</option>
+                  {availableMapelOptions.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Ketidakhadiran (if presensi) */}
+              {activeCategory === 'presensi' && (
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Status Kehadiran</label>
+                  <select
+                    value={stagedFilters.status}
+                    onChange={(e) => setStagedFilters(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none"
+                  >
+                    <option value="all">Semua Status</option>
+                    <option value="Sakit">Sakit</option>
+                    <option value="Izin">Izin</option>
+                    <option value="Alpa">Alpa</option>
+                    <option value="Terlambat">Terlambat</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Asesmen & Status Nilai (if nilai) */}
+              {activeCategory === 'nilai' && (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Jenis Asesmen</label>
+                    <select
+                      value={stagedFilters.jenisAsesmen}
+                      onChange={(e) => setStagedFilters(prev => ({ ...prev, jenisAsesmen: e.target.value }))}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none"
+                    >
+                      <option value="all">Semua Asesmen</option>
+                      <option value="Formatif (Tugas)">Formatif (Tugas)</option>
+                      <option value="Praktik / Unjuk Kerja">Praktik / Unjuk Kerja</option>
+                      <option value="Sumatif (UH)">Sumatif (UH)</option>
+                      <option value="Portofolio">Portofolio</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Status Kelulusan</label>
+                    <select
+                      value={stagedFilters.statusNilai}
+                      onChange={(e) => setStagedFilters(prev => ({ ...prev, statusNilai: e.target.value }))}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none"
+                    >
+                      <option value="all">Semua Status</option>
+                      <option value="Tuntas">Tuntas</option>
+                      <option value="Remedial">Remedial</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              {/* Search Box */}
+              <div className={activeCategory === 'nilai' ? 'col-span-2' : 'col-span-2 sm:col-span-2 md:col-span-2'}>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Pencarian Kata Kunci</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari guru, siswa, mapel, materi..."
+                    value={stagedFilters.searchQuery}
+                    onChange={(e) => setStagedFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl pl-8 pr-3 py-1.5 font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Button Bar: Filter Actions & Complete Report Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+              {/* Left: Filter control buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleApplyFilter}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition active:scale-95 cursor-pointer"
+                  title="Terapkan kriteria filter dan perbarui rekapitulasi data cetak"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  <span>🔍 Terapkan Filter</span>
+                </button>
+
+                <button
+                  onClick={handleResetFilter}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
+                  title="Reset seluruh filter ke pengaturan awal"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 text-slate-500" />
+                  <span>🔄 Reset Filter</span>
+                </button>
+              </div>
+
+              {/* Right: Universal Output Actions */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handlePreviewActiveReport}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-700 dark:hover:bg-slate-600 font-bold text-xs shadow-sm transition cursor-pointer"
+                  title="Pratinjau tampilan cetak resmi A4 lengkap Kop Surat dan tanda tangan"
+                >
+                  <Eye className="h-3.5 w-3.5 text-teal-400" />
+                  <span>👁️ Preview</span>
+                </button>
+
+                <button
+                  onClick={handleExportActiveTableToPDF}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+                  title="Cetak dan generate berkas PDF resmi"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>📄 Cetak PDF</span>
+                </button>
+
+                <button
+                  onClick={handleExportActiveTableToPDF}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 font-bold text-xs transition cursor-pointer"
+                  title="Unduh langsung file PDF dokumen laporan"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>⬇️ Download PDF</span>
+                </button>
+
+                <button
+                  onClick={handlePrintActiveReport}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
+                  title="Cetak langsung ke printer via browser dialog"
+                >
+                  <Printer className="h-3.5 w-3.5 text-teal-600" />
+                  <span>🖨️ Print</span>
+                </button>
+
+                <button
+                  onClick={handleExportActiveExcel}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+                  title="Export data laporan yang difilter ke spreadsheet Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-100" />
+                  <span>📊 Export Excel</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. Ringkasan Data yang Akan Dicetak (Rekap KPI & Status) */}
+        {activeCategory !== 'rekap_absensi' && (
+          <div className="bg-slate-50/80 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  <span>Ringkasan Data Siap Cetak & Export</span>
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  Periksa ringkasan statistik berikut sebelum mencetak dokumen resmi {setting.namaSekolah}.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                  TP: <b>{appliedFilters.tahunPelajaran} ({appliedFilters.semester})</b>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                  Kelas: <b>{appliedFilters.kelas === 'all' ? 'Semua Kelas' : appliedFilters.kelas}</b>
+                </span>
+              </div>
+            </div>
+
+            {/* Metric Cards per Category */}
+            {activeCategory === 'guru' && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-teal-200 dark:border-teal-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Total Agenda</span>
+                  <p className="text-lg font-black text-teal-700 dark:text-teal-400">{filteredGuruList.length} Agenda</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-sky-200 dark:border-sky-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Total Jam Pelajaran</span>
+                  <p className="text-lg font-black text-sky-700 dark:text-sky-400">{totalJPGuru} JP</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Guru Terdata</span>
+                  <p className="text-lg font-black text-purple-700 dark:text-purple-400">{uniqueGuruCount} Guru</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Rata-rata Kehadiran</span>
+                  <p className="text-lg font-black text-emerald-700 dark:text-emerald-400">{avgKehadiranGuru}%</p>
+                </div>
               </div>
             )}
 
-            {/* Filter Guru, Mapel, Jenis Asesmen & Status (Only active if nilai) */}
-            {activeCategory === 'nilai' && (
-              <>
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-                  <span className="font-bold text-teal-600 dark:text-teal-400">Guru:</span>
-                  <select
-                    value={selectedGuruFilter}
-                    onChange={(e) => setSelectedGuruFilter(e.target.value)}
-                    className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[140px] truncate"
-                  >
-                    <option value="all">Semua Guru</option>
-                    {(guruList || []).map(g => (
-                      <option key={g.id} value={g.nama}>{g.nama}</option>
-                    ))}
-                  </select>
+            {activeCategory === 'kelas' && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Total Jurnal Kelas</span>
+                  <p className="text-lg font-black text-indigo-700 dark:text-indigo-400">{filteredKelasList.length} Jurnal</p>
                 </div>
-
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-                  <span className="font-bold text-teal-600 dark:text-teal-400">Mapel:</span>
-                  <select
-                    value={selectedMapelFilter}
-                    onChange={(e) => setSelectedMapelFilter(e.target.value)}
-                    className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[140px] truncate"
-                  >
-                    <option value="all">Semua Mapel</option>
-                    {(mapelList || []).map(m => (
-                      <option key={m.id} value={m.namaMapel}>{m.namaMapel}</option>
-                    ))}
-                  </select>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Siswa Hadir</span>
+                  <p className="text-lg font-black text-emerald-700 dark:text-emerald-400">{totalHadirKelas} Siswa</p>
                 </div>
-
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-                  <span className="font-bold text-slate-400">Asesmen:</span>
-                  <select
-                    value={selectedJenisAsesmenFilter}
-                    onChange={(e) => setSelectedJenisAsesmenFilter(e.target.value)}
-                    className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-                  >
-                    <option value="all">Semua Jenis Asesmen</option>
-                    <option value="Formatif (Tugas)">Formatif (Tugas)</option>
-                    <option value="Praktik / Unjuk Kerja">Praktik / Unjuk Kerja</option>
-                    <option value="Sumatif (UH)">Sumatif (UH)</option>
-                    <option value="Portofolio">Portofolio</option>
-                  </select>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Total Tidak Hadir</span>
+                  <p className="text-lg font-black text-rose-700 dark:text-rose-400">{totalAbsenKelas} Siswa</p>
                 </div>
-
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-                  <span className="font-bold text-slate-400">Status:</span>
-                  <select
-                    value={selectedStatusNilaiFilter}
-                    onChange={(e) => setSelectedStatusNilaiFilter(e.target.value)}
-                    className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-                  >
-                    <option value="all">Semua Status Ketuntasan</option>
-                    <option value="Tuntas">Tuntas</option>
-                    <option value="Remedial">Remedial</option>
-                  </select>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-teal-200 dark:border-teal-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Rata-rata Presensi</span>
+                  <p className="text-lg font-black text-teal-700 dark:text-teal-400">{avgKehadiranKelas}%</p>
                 </div>
-              </>
+              </div>
             )}
 
-            {/* Search Box */}
-            <div className="relative w-full sm:w-48">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Cari guru, siswa, mapel..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 pr-3 py-1 text-xs focus:ring-2 focus:ring-teal-500 outline-none"
-              />
-            </div>
+            {activeCategory === 'presensi' && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Total Catatan</span>
+                  <p className="text-lg font-black text-rose-700 dark:text-rose-400">{filteredAbsentStudents.length} Siswa</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Sakit</span>
+                  <p className="text-lg font-black text-amber-600 dark:text-amber-400">{countSakit} Siswa</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-sky-200 dark:border-sky-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Izin</span>
+                  <p className="text-lg font-black text-sky-600 dark:text-sky-400">{countIzin} Siswa</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Alpa (Tanpa Ket.)</span>
+                  <p className="text-lg font-black text-red-600 dark:text-red-400">{countAlpa} Siswa</p>
+                </div>
+              </div>
+            )}
+
+            {activeCategory === 'nilai' && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Evaluasi Nilai</span>
+                  <p className="text-lg font-black text-amber-700 dark:text-amber-400">{filteredNilaiList.length} Catatan</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-teal-200 dark:border-teal-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Rata-rata Nilai</span>
+                  <p className="text-lg font-black text-teal-700 dark:text-teal-400">{avgNilaiAkhir}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Tuntas ({pctTuntas}%)</span>
+                  <p className="text-lg font-black text-emerald-700 dark:text-emerald-400">{totalTuntas} Siswa</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Remedial</span>
+                  <p className="text-lg font-black text-rose-700 dark:text-rose-400">{totalRemedial} Siswa</p>
+                </div>
+              </div>
+            )}
+
+            {activeCategory === 'supervisi' && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Total Supervisi</span>
+                  <p className="text-lg font-black text-purple-700 dark:text-purple-400">{filteredSupervisiList.length} Catatan</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-teal-200 dark:border-teal-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Skor Rata-rata</span>
+                  <p className="text-lg font-black text-teal-700 dark:text-teal-400">{avgSkorSupervisi}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Predikat Baik</span>
+                  <p className="text-lg font-black text-emerald-700 dark:text-emerald-400">{predikatBaikCount} Guru</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-sky-200 dark:border-sky-900/60 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Status Selesai</span>
+                  <p className="text-lg font-black text-sky-700 dark:text-sky-400">{supervisiSelesaiCount} Guru</p>
+                </div>
+              </div>
+            )}
+
+            {/* Empty Guard Alert Box */}
+            {((activeCategory === 'guru' && filteredGuruList.length === 0) ||
+              (activeCategory === 'kelas' && filteredKelasList.length === 0) ||
+              (activeCategory === 'presensi' && filteredAbsentStudents.length === 0) ||
+              (activeCategory === 'nilai' && filteredNilaiList.length === 0) ||
+              (activeCategory === 'supervisi' && filteredSupervisiList.length === 0)) && (
+              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                  <div>
+                    <span className="font-bold">Tidak ada data yang sesuai dengan filter yang dipilih.</span>
+                    <span className="block text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                      Dokumen cetak PDF tidak akan digenerate saat data kosong. Silakan sesuaikan kriteria filter di atas atau klik tombol <b>Reset Filter</b>.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleResetFilter}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 transition cursor-pointer"
+                >
+                  Reset Filter
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Rekap Absensi Bulanan View */}
         {activeCategory === 'rekap_absensi' && (
