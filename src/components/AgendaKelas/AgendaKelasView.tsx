@@ -25,10 +25,11 @@ import {
   Trash2,
   RefreshCw
 } from 'lucide-react';
-import { AgendaKelasItem, KelasItem, SchoolSetting, User } from '../../types';
+import { AgendaKelasItem, KelasItem, SchoolSetting, User, SiswaItem, AbsensiSiswaRecord, AgendaGuruItem } from '../../types';
 import { generateAgendaKelasPDF } from '../../lib/pdfGenerator';
 import { exportAgendaKelasToExcel } from '../../lib/excelExport';
 import { Storage } from '../../lib/storage';
+import { getAttendanceSummary, getMonitoringPembelajaranFromAgendaGuru } from '../../lib/attendanceHelper';
 import { DigitalSignaturePad } from '../DigitalSignaturePad';
 import { ProofUploader } from '../ProofUploader';
 import { showAlert } from '../../lib/alerts';
@@ -40,6 +41,9 @@ interface AgendaKelasViewProps {
   kelasList: KelasItem[];
   setting: SchoolSetting;
   currentUser: User;
+  siswaList?: SiswaItem[];
+  absensiSiswaList?: AbsensiSiswaRecord[];
+  agendaGuruList?: AgendaGuruItem[];
   onRefresh: () => void;
   onOpenGoogleSheetsModal?: () => void;
 }
@@ -49,6 +53,9 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
   kelasList,
   setting,
   currentUser,
+  siswaList,
+  absensiSiswaList,
+  agendaGuruList,
   onRefresh,
   onOpenGoogleSheetsModal
 }) => {
@@ -75,93 +82,30 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
     setDeleteTarget(null);
   };
 
-  // Helper to get integrated attendance data from AgendaGuru or AbsensiSiswa
+  // Helper to get integrated attendance data from AgendaGuru or AbsensiSiswa using attendanceHelper
   const getAttendanceFromAgendaGuruOrAbsensi = React.useCallback((kelasName: string, dateStr: string) => {
-    // 1. Check AgendaGuru first for this class & date
-    const agendaGuruList = Storage.getAgendaGuru().filter(a => a.kelas === kelasName && a.tanggal === dateStr);
+    const absList = absensiSiswaList && absensiSiswaList.length > 0 ? absensiSiswaList : Storage.getAbsensiSiswa();
+    const sList = siswaList && siswaList.length > 0 ? siswaList : Storage.getSiswa();
 
-    if (agendaGuruList.length > 0) {
-      const latestAG = agendaGuruList[0];
-      const totalSiswa = latestAG.totalSiswa || 36;
-      const hadir = latestAG.hadir ?? totalSiswa;
-      const sakit = latestAG.sakit ?? 0;
-      const izin = latestAG.izin ?? 0;
-      const alpa = latestAG.alpa ?? 0;
-      const terlambat = latestAG.terlambat ?? 0;
-      const persentase = latestAG.persentaseKehadiran ?? 100;
-      const siswaTidakHadir = latestAG.siswaTidakHadir || [];
+    // 1. Get attendance summary
+    const att = getAttendanceSummary(kelasName, dateStr, undefined, sList, absList);
 
-      const monitoringPembelajaran = agendaGuruList.map(ag => ({
-        jp: ag.jamKe || '1 - 4',
-        mapel: ag.mapel || 'Mata Pelajaran',
-        guru: ag.namaGuru || 'Guru Pengampu',
-        materi: ag.materi || 'Materi Pembelajaran',
-        tugas: ag.tugas || 'Tidak ada tugas',
-        status: 'Terlaksana' as const
-      }));
+    // 2. Get monitoring pembelajaran from AgendaGuru
+    const monitoringPembelajaran = getMonitoringPembelajaranFromAgendaGuru(kelasName, dateStr);
 
-      return {
-        jumlahSiswa: totalSiswa,
-        hadir,
-        sakit,
-        izin,
-        alpa,
-        terlambat,
-        persentase,
-        siswaTidakHadir,
-        monitoringPembelajaran
-      };
-    }
-
-    // 2. Fallback to AbsensiSiswa
-    const absensiList = Storage.getAbsensiSiswa().filter(a => a.kelas === kelasName && a.tanggal === dateStr);
-    const allSiswa = Storage.getSiswa();
-    const classStudents = allSiswa.filter(s => s.kelas === kelasName);
-    const totalSiswa = classStudents.length > 0 ? classStudents.length : 36;
-
-    if (absensiList.length > 0) {
-      const sakit = absensiList.filter(r => r.status === 'Sakit').length;
-      const izin = absensiList.filter(r => r.status === 'Izin').length;
-      const alpa = absensiList.filter(r => r.status === 'Alpa').length;
-      const terlambat = absensiList.filter(r => r.status === 'Terlambat').length;
-      const hadir = Math.max(0, totalSiswa - (sakit + izin + alpa));
-      const persentase = totalSiswa > 0 ? Number(((hadir / totalSiswa) * 100).toFixed(2)) : 100;
-
-      const siswaTidakHadir = absensiList
-        .filter(r => r.status !== 'Hadir')
-        .map(r => ({
-          nis: r.nis,
-          nama: r.namaSiswa,
-          kategori: r.status as 'Sakit' | 'Izin' | 'Alpa' | 'Terlambat',
-          alasan: r.alasan || (r.status === 'Alpa' ? 'Tanpa Keterangan' : `Siswa ${r.status}`)
-        }));
-
-      return {
-        jumlahSiswa: totalSiswa,
-        hadir,
-        sakit,
-        izin,
-        alpa,
-        terlambat,
-        persentase,
-        siswaTidakHadir,
-        monitoringPembelajaran: []
-      };
-    }
-
-    // 3. Default if no inputs found for sakit, izin, alpa -> fill with ZERO!
     return {
-      jumlahSiswa: totalSiswa,
-      hadir: totalSiswa,
-      sakit: 0,
-      izin: 0,
-      alpa: 0,
-      terlambat: 0,
-      persentase: 100,
-      siswaTidakHadir: [],
-      monitoringPembelajaran: []
+      jumlahSiswa: att.totalSiswa,
+      hadir: att.hadir,
+      sakit: att.sakit,
+      izin: att.izin,
+      alpa: att.alpa,
+      terlambat: att.terlambat,
+      persentase: att.persentaseKehadiran,
+      siswaTidakHadir: att.siswaTidakHadir,
+      monitoringPembelajaran,
+      isRecorded: att.isRecorded
     };
-  }, []);
+  }, [absensiSiswaList, siswaList]);
 
   const firstKelas = kelasList[0];
   const initialKelasName = firstKelas?.namaKelas || 'X DKV 1';
@@ -224,6 +168,32 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
 
   const [formData, setFormData] = useState<Partial<AgendaKelasItem>>(defaultForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Manual sync handler from AbsensiSiswa
+  const handleSyncAttendance = () => {
+    const curKelas = formData.kelas || kelasList[0]?.namaKelas || 'X DKV 1';
+    const curTanggal = formData.tanggal || new Date().toISOString().slice(0, 10);
+    const att = getAttendanceFromAgendaGuruOrAbsensi(curKelas, curTanggal);
+
+    setFormData(prev => ({
+      ...prev,
+      jumlahSiswa: att.jumlahSiswa,
+      hadir: att.hadir,
+      sakit: att.sakit,
+      izin: att.izin,
+      alpa: att.alpa,
+      terlambat: att.terlambat,
+      persentase: att.persentase,
+      siswaTidakHadir: att.siswaTidakHadir,
+      monitoringPembelajaran: att.monitoringPembelajaran.length > 0 ? att.monitoringPembelajaran : (prev.monitoringPembelajaran || [])
+    }));
+
+    if (att.isRecorded) {
+      toast.success(`Berhasil sinkronisasi: ${att.hadir} Hadir, ${att.sakit} Sakit, ${att.izin} Izin, ${att.alpa} Alpa, ${att.terlambat} Terlambat.`);
+    } else {
+      toast.info(`Belum ada catatan presensi tersimpan untuk kelas ${curKelas} tanggal ${curTanggal}. Menampilkan default.`);
+    }
+  };
 
   // Auto-update attendance when kelas or tanggal changes while form modal is open
   React.useEffect(() => {
@@ -351,9 +321,24 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
           <button
             onClick={() => {
               setEditingId(null);
+              const curKelas = firstKelas?.namaKelas || 'X DKV 1';
+              const curTanggal = new Date().toISOString().slice(0, 10);
+              const att = getAttendanceFromAgendaGuruOrAbsensi(curKelas, curTanggal);
               setFormData({
                 ...defaultForm,
-                nomorAgenda: `AK/${(firstKelas?.namaKelas || 'X').replace(/\s+/g, '')}/${new Date().getFullYear()}/${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getDate()}`
+                kelas: curKelas,
+                tanggal: curTanggal,
+                hari: getDayName(curTanggal),
+                nomorAgenda: `AK/${curKelas.replace(/\s+/g, '')}/${new Date().getFullYear()}/${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getDate()}`,
+                jumlahSiswa: att.jumlahSiswa,
+                hadir: att.hadir,
+                sakit: att.sakit,
+                izin: att.izin,
+                alpa: att.alpa,
+                terlambat: att.terlambat,
+                persentase: att.persentase,
+                siswaTidakHadir: att.siswaTidakHadir,
+                monitoringPembelajaran: att.monitoringPembelajaran.length > 0 ? att.monitoringPembelajaran : (defaultForm.monitoringPembelajaran || [])
               });
               setShowFormModal(true);
             }}
@@ -772,70 +757,152 @@ export const AgendaKelasView: React.FC<AgendaKelasViewProps> = ({
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-teal-500/30 bg-teal-50/30 dark:bg-slate-800/40 space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-teal-200 dark:border-slate-700 pb-2">
-                  <span className="font-bold text-teal-800 dark:text-teal-300 uppercase text-xs flex items-center gap-1.5">
-                    <span>Rekap Kehadiran Siswa</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-800">
-                      🔒 Hanya Bisa Dilihat
+              <div className="p-3.5 rounded-xl border border-teal-500/30 bg-teal-50/30 dark:bg-slate-800/40 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-teal-200 dark:border-slate-700 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-teal-800 dark:text-teal-300 uppercase text-xs flex items-center gap-1.5">
+                      <span>Rekap Kehadiran Siswa</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-800">
+                        🔒 Sinkron Otomatis
+                      </span>
                     </span>
-                  </span>
-                  <span className="text-[11px] text-teal-700 dark:text-teal-400 font-semibold italic">
-                    ⚡ Otomatis terisi saat guru mata pelajaran mengisi Absensi Siswa
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSyncAttendance}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/60 hover:bg-teal-200 transition cursor-pointer border border-teal-300 dark:border-teal-700 shadow-2xs"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      <span>Tarik Presensi Siswa</span>
+                    </button>
+                    <span className="text-[11px] text-teal-700 dark:text-teal-400 font-semibold italic hidden sm:inline">
+                      ⚡ Terisi otomatis dari Presensi Siswa
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status Bar */}
+                <div className="p-2.5 rounded-lg text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white/80 dark:bg-slate-900/80 border border-teal-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span>
+                      Data kehadiran kelas <strong className="text-teal-700 dark:text-teal-300">{formData.kelas}</strong> tanggal <strong className="text-teal-700 dark:text-teal-300">{formData.tanggal}</strong>
+                    </span>
+                  </div>
+                  <span className="text-xs font-black text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950 px-2.5 py-1 rounded-full border border-teal-200 dark:border-teal-800 self-start sm:self-auto">
+                    Kehadiran: {formData.persentase ?? 100}%
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 pt-1">
                   <div>
-                    <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Total Siswa</label>
+                    <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300 text-xs">Total Siswa</label>
                     <input
                       type="number"
                       value={formData.jumlahSiswa ?? 36}
                       readOnly
                       tabIndex={-1}
-                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2 bg-slate-100 dark:bg-slate-900 font-bold text-slate-800 dark:text-slate-200 cursor-not-allowed select-none"
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2 bg-slate-100 dark:bg-slate-900 font-bold text-slate-800 dark:text-slate-200 cursor-not-allowed select-none text-center"
                     />
                   </div>
                   <div>
-                    <label className="block mb-1 font-bold text-emerald-600 dark:text-emerald-400">Hadir</label>
+                    <label className="block mb-1 font-bold text-emerald-600 dark:text-emerald-400 text-xs">Hadir</label>
                     <input
                       type="number"
-                      value={formData.hadir ?? 33}
+                      value={formData.hadir ?? 36}
                       readOnly
                       tabIndex={-1}
-                      className="w-full rounded-lg border border-emerald-300 dark:border-emerald-800 p-2 bg-emerald-50 dark:bg-emerald-950/40 font-black text-emerald-700 dark:text-emerald-300 cursor-not-allowed select-none"
+                      className="w-full rounded-lg border border-emerald-300 dark:border-emerald-800 p-2 bg-emerald-50 dark:bg-emerald-950/40 font-black text-emerald-700 dark:text-emerald-300 cursor-not-allowed select-none text-center"
                     />
                   </div>
                   <div>
-                    <label className="block mb-1 font-bold text-amber-600 dark:text-amber-400">Sakit</label>
+                    <label className="block mb-1 font-bold text-amber-600 dark:text-amber-400 text-xs">Sakit</label>
                     <input
                       type="number"
-                      value={formData.sakit ?? 1}
+                      value={formData.sakit ?? 0}
                       readOnly
                       tabIndex={-1}
-                      className="w-full rounded-lg border border-amber-300 dark:border-amber-800 p-2 bg-amber-50 dark:bg-amber-950/40 font-black text-amber-700 dark:text-amber-300 cursor-not-allowed select-none"
+                      className="w-full rounded-lg border border-amber-300 dark:border-amber-800 p-2 bg-amber-50 dark:bg-amber-950/40 font-black text-amber-700 dark:text-amber-300 cursor-not-allowed select-none text-center"
                     />
                   </div>
                   <div>
-                    <label className="block mb-1 font-bold text-sky-600 dark:text-sky-400">Izin</label>
+                    <label className="block mb-1 font-bold text-sky-600 dark:text-sky-400 text-xs">Izin</label>
                     <input
                       type="number"
-                      value={formData.izin ?? 1}
+                      value={formData.izin ?? 0}
                       readOnly
                       tabIndex={-1}
-                      className="w-full rounded-lg border border-sky-300 dark:border-sky-800 p-2 bg-sky-50 dark:bg-sky-950/40 font-black text-sky-700 dark:text-sky-300 cursor-not-allowed select-none"
+                      className="w-full rounded-lg border border-sky-300 dark:border-sky-800 p-2 bg-sky-50 dark:bg-sky-950/40 font-black text-sky-700 dark:text-sky-300 cursor-not-allowed select-none text-center"
                     />
                   </div>
                   <div>
-                    <label className="block mb-1 font-bold text-rose-600 dark:text-rose-400">Alpa</label>
+                    <label className="block mb-1 font-bold text-rose-600 dark:text-rose-400 text-xs">Alpa</label>
                     <input
                       type="number"
-                      value={formData.alpa ?? 1}
+                      value={formData.alpa ?? 0}
                       readOnly
                       tabIndex={-1}
-                      className="w-full rounded-lg border border-rose-300 dark:border-rose-800 p-2 bg-rose-50 dark:bg-rose-950/40 font-black text-rose-700 dark:text-rose-300 cursor-not-allowed select-none"
+                      className="w-full rounded-lg border border-rose-300 dark:border-rose-800 p-2 bg-rose-50 dark:bg-rose-950/40 font-black text-rose-700 dark:text-rose-300 cursor-not-allowed select-none text-center"
                     />
                   </div>
+                  <div>
+                    <label className="block mb-1 font-bold text-orange-600 dark:text-orange-400 text-xs">Terlambat</label>
+                    <input
+                      type="number"
+                      value={formData.terlambat ?? 0}
+                      readOnly
+                      tabIndex={-1}
+                      className="w-full rounded-lg border border-orange-300 dark:border-orange-800 p-2 bg-orange-50 dark:bg-orange-950/40 font-black text-orange-700 dark:text-orange-300 cursor-not-allowed select-none text-center"
+                    />
+                  </div>
+                </div>
+
+                {/* List of absent / special students */}
+                <div className="pt-2">
+                  <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Daftar Siswa Tidak Hadir / Keterangan Khusus:
+                  </span>
+                  {formData.siswaTidakHadir && formData.siswaTidakHadir.length > 0 ? (
+                    <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700">
+                          <tr>
+                            <th className="p-2 w-10 text-center">No</th>
+                            <th className="p-2">NIS</th>
+                            <th className="p-2">Nama Siswa</th>
+                            <th className="p-2">Status</th>
+                            <th className="p-2">Alasan / Keterangan</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {formData.siswaTidakHadir.map((s, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                              <td className="p-2 text-center text-slate-400">{idx + 1}</td>
+                              <td className="p-2 font-mono text-slate-500">{s.nis}</td>
+                              <td className="p-2 font-bold text-slate-800 dark:text-slate-200">{s.nama}</td>
+                              <td className="p-2">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  s.kategori === 'Sakit' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300' :
+                                  s.kategori === 'Izin' ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-300' :
+                                  s.kategori === 'Alpa' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300' :
+                                  'bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300'
+                                }`}>
+                                  {s.kategori}
+                                </span>
+                              </td>
+                              <td className="p-2 text-slate-600 dark:text-slate-400 italic">{s.alasan || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-emerald-600" />
+                      <span>Semua siswa hadir lengkap ({formData.jumlahSiswa ?? 36} siswa). Tidak ada siswa yang tercatat sakit, izin, alpa, maupun terlambat.</span>
+                    </div>
+                  )}
                 </div>
               </div>
 

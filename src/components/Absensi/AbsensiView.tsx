@@ -13,6 +13,7 @@ interface AbsensiViewProps {
   mapelList?: MapelItem[];
   jadwalList?: JadwalItem[];
   currentUser: User;
+  absensiSiswaList?: AbsensiSiswaRecord[];
   onRefresh: () => void;
 }
 
@@ -23,12 +24,14 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
   mapelList = [],
   jadwalList = [],
   currentUser,
+  absensiSiswaList,
   onRefresh
 }) => {
   const safeKelasList = kelasList || [];
   const safeSiswaList = siswaList || [];
 
   const [activeSubTab, setActiveSubTab] = useState<'harian' | 'riwayat' | 'rekap_bulanan'>('harian');
+  const [selectedTanggal, setSelectedTanggal] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [selectedKelas, setSelectedKelas] = useState(safeKelasList[0]?.namaKelas || 'X DKV 1');
   const [selectedMapel, setSelectedMapel] = useState(mapelList[0]?.namaMapel || 'Dasar-Dasar Desain Komunikasi Visual');
   const [selectedGuru, setSelectedGuru] = useState(currentUser?.nama || guruList[0]?.nama || 'Dede Mulyana, S.Kom.');
@@ -66,13 +69,14 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
   });
 
   const [attendanceState, setAttendanceState] = useState<Record<string, 'Hadir' | 'Sakit' | 'Izin' | 'Alpa' | 'Terlambat'>>({});
+  const [reasonsState, setReasonsState] = useState<Record<string, string>>({});
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize attendanceState from stored records for today when selectedKelas, selectedMapel, or selectedGuru changes
+  // Initialize attendanceState from stored records for selected date & class
   React.useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const storedAbsensi = Storage.getAbsensiSiswa();
+    const today = selectedTanggal;
+    const storedAbsensi = absensiSiswaList && absensiSiswaList.length > 0 ? absensiSiswaList : Storage.getAbsensiSiswa();
     
     // Match records for class, date, and mapel/guru
     const classRecords = storedAbsensi.filter(a => 
@@ -83,21 +87,22 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
 
     if (classRecords.length > 0) {
       const stateMap: Record<string, 'Hadir' | 'Sakit' | 'Izin' | 'Alpa' | 'Terlambat'> = {};
+      const reasonMap: Record<string, string> = {};
       classRecords.forEach(r => {
-        if (r.id_siswa) {
-          stateMap[r.id_siswa] = r.status;
-        } else {
-          const matchedSiswa = safeSiswaList.find(s => s.nis === r.nis && s.kelas === selectedKelas);
-          if (matchedSiswa) {
-            stateMap[matchedSiswa.id] = r.status;
-          }
+        const matchedSiswa = r.id_siswa ? safeSiswaList.find(s => s.id === r.id_siswa) : safeSiswaList.find(s => s.nis === r.nis && s.kelas === selectedKelas);
+        const key = matchedSiswa ? matchedSiswa.id : (r.id_siswa || r.nis);
+        if (key) {
+          stateMap[key] = r.status;
+          if (r.alasan) reasonMap[key] = r.alasan;
         }
       });
       setAttendanceState(stateMap);
+      setReasonsState(reasonMap);
     } else {
       setAttendanceState({});
+      setReasonsState({});
     }
-  }, [selectedKelas, selectedMapel, selectedGuru, safeSiswaList]);
+  }, [selectedKelas, selectedMapel, selectedGuru, selectedTanggal, safeSiswaList, absensiSiswaList]);
 
   const handleSetStatus = (siswaId: string, status: 'Hadir' | 'Sakit' | 'Izin' | 'Alpa' | 'Terlambat') => {
     setAttendanceState(prev => ({ ...prev, [siswaId]: status }));
@@ -114,7 +119,7 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
   const handleSimpanAbsensiSiswa = async () => {
     setIsSubmitting(true);
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = selectedTanggal;
       const allSiswaInClass = safeSiswaList.filter(s => s.kelas === selectedKelas);
       const existingAll = Storage.getAbsensiSiswa();
       
@@ -128,6 +133,8 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
       // Create new records for all students in class
       const newRecords = allSiswaInClass.map(s => {
         const status = attendanceState[s.id] || 'Hadir';
+        const rawReason = reasonsState[s.id];
+        const defaultReason = status === 'Alpa' ? 'Tanpa Keterangan' : status === 'Sakit' ? 'Sakit' : status === 'Izin' ? 'Izin' : status === 'Terlambat' ? 'Terlambat' : undefined;
         return {
           id: `abs-sis-${s.id}-${today}-${selectedMapel.replace(/[^a-zA-Z0-9]/g, '_')}`,
           tanggal: today,
@@ -140,17 +147,19 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
           guru: selectedGuru,
           jamKe: selectedJamKe,
           id_siswa: s.id,
-          id_kelas: selectedKelas
+          id_kelas: selectedKelas,
+          alasan: rawReason?.trim() || defaultReason
         };
       });
 
       const updatedAbsensiList = [...otherRecords, ...newRecords];
       Storage.saveAbsensiSiswa(updatedAbsensiList);
 
-      Storage.logAudit('SAVE_ABSENSI_SISWA', `Menyimpan presensi siswa ${selectedMapel} kelas ${selectedKelas} (${allSiswaInClass.length} data)`);
+      Storage.logAudit('SAVE_ABSENSI_SISWA', `Menyimpan presensi siswa ${selectedMapel} kelas ${selectedKelas} tanggal ${today} (${allSiswaInClass.length} data)`);
       setIsSavedSuccess(true);
       setTimeout(() => setIsSavedSuccess(false), 3000);
       onRefresh();
+      toast.success(`Presensi ${selectedKelas} tanggal ${today} tersimpan! Kehadiran otomatis muncul di Agenda Harian Guru & Agenda Kelas.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -167,7 +176,7 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
     }, 1200);
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = selectedTanggal;
   const storedTodayRecords = Storage.getAbsensiSiswa().filter(a => 
     a.kelas === selectedKelas && 
     a.tanggal === today && 
@@ -634,7 +643,20 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
 
       {/* Control Bar: Class, Mapel, Guru selector, quick actions */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-2xs space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-[#2563EB]" />
+              Tanggal Presensi
+            </label>
+            <input
+              type="date"
+              value={selectedTanggal}
+              onChange={(e) => setSelectedTanggal(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-2 text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+            />
+          </div>
+
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
               <Users className="h-3 w-3 text-[#2563EB]" />
@@ -806,24 +828,35 @@ export const AbsensiView: React.FC<AbsensiViewProps> = ({
                       <td className="py-3 px-4 font-bold text-[#163A5F] dark:text-white">{s.nama}</td>
                       <td className="py-3 px-4 font-medium text-slate-500">{s.gender}</td>
                       <td className="py-3 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5 bg-[#F5F7FA] dark:bg-slate-800 p-1 rounded-xl">
-                          {(['Hadir', 'Sakit', 'Izin', 'Alpa', 'Terlambat'] as const).map(st => (
-                            <button
-                              key={st}
-                              onClick={() => handleSetStatus(s.id, st)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                                currentStatus === st
-                                  ? st === 'Hadir' ? 'bg-[#16A34A] text-white shadow-xs'
-                                  : st === 'Sakit' ? 'bg-[#F59E0B] text-white shadow-xs'
-                                  : st === 'Izin' ? 'bg-[#2563EB] text-white shadow-xs'
-                                  : st === 'Alpa' ? 'bg-[#DC2626] text-white shadow-xs'
-                                  : 'bg-orange-500 text-white shadow-xs'
-                                  : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'
-                              }`}
-                            >
-                              {st}
-                            </button>
-                          ))}
+                        <div className="inline-flex flex-col items-center gap-1.5">
+                          <div className="inline-flex items-center gap-1.5 bg-[#F5F7FA] dark:bg-slate-800 p-1 rounded-xl">
+                            {(['Hadir', 'Sakit', 'Izin', 'Alpa', 'Terlambat'] as const).map(st => (
+                              <button
+                                key={st}
+                                onClick={() => handleSetStatus(s.id, st)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                  currentStatus === st
+                                    ? st === 'Hadir' ? 'bg-[#16A34A] text-white shadow-xs'
+                                    : st === 'Sakit' ? 'bg-[#F59E0B] text-white shadow-xs'
+                                    : st === 'Izin' ? 'bg-[#2563EB] text-white shadow-xs'
+                                    : st === 'Alpa' ? 'bg-[#DC2626] text-white shadow-xs'
+                                    : 'bg-orange-500 text-white shadow-xs'
+                                    : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'
+                                }`}
+                              >
+                                {st}
+                              </button>
+                            ))}
+                          </div>
+                          {currentStatus !== 'Hadir' && (
+                            <input
+                              type="text"
+                              value={reasonsState[s.id] || ''}
+                              onChange={(e) => setReasonsState(prev => ({ ...prev, [s.id]: e.target.value }))}
+                              placeholder={`Alasan ${currentStatus.toLowerCase()} (e.g. Surat Dokter, Urusan Keluarga)...`}
+                              className="w-full text-[11px] px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+                            />
+                          )}
                         </div>
                       </td>
                     </tr>

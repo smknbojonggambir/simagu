@@ -22,7 +22,7 @@ import { GoogleSheetsSyncModal } from './components/GoogleSheetsSyncModal';
 import { LoginView } from './components/Auth/LoginView';
 
 import { Storage, safeLocalStorage } from './lib/storage';
-import { UserRole, User } from './types';
+import { UserRole, User, AbsensiSiswaRecord } from './types';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -62,6 +62,7 @@ export default function App() {
   const [agendaGuruList, setAgendaGuruList] = useState(Storage.getAgendaGuru());
   const [agendaKelasList, setAgendaKelasList] = useState(Storage.getAgendaKelas());
   const [absensiGuruList, setAbsensiGuruList] = useState(Storage.getAbsensiGuru());
+  const [absensiSiswaList, setAbsensiSiswaList] = useState<AbsensiSiswaRecord[]>(Storage.getAbsensiSiswa());
   const [supervisiList, setSupervisiList] = useState(Storage.getSupervisi());
   const [materiList, setMateriList] = useState(Storage.getMateri());
   const [tugasList, setTugasList] = useState(Storage.getTugas());
@@ -103,6 +104,7 @@ export default function App() {
     setAgendaGuruList(Storage.getAgendaGuru());
     setAgendaKelasList(Storage.getAgendaKelas());
     setAbsensiGuruList(Storage.getAbsensiGuru());
+    setAbsensiSiswaList(Storage.getAbsensiSiswa());
     setSupervisiList(Storage.getSupervisi());
     setMateriList(Storage.getMateri());
     setTugasList(Storage.getTugas());
@@ -242,6 +244,7 @@ export default function App() {
                       setting={setting}
                       currentUser={currentUser}
                       siswaList={siswaList}
+                      absensiSiswaList={absensiSiswaList}
                       onRefresh={handleRefreshData}
                       onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
                     />
@@ -253,6 +256,9 @@ export default function App() {
                       kelasList={kelasList}
                       setting={setting}
                       currentUser={currentUser}
+                      siswaList={siswaList}
+                      absensiSiswaList={absensiSiswaList}
+                      agendaGuruList={agendaGuruList}
                       onRefresh={handleRefreshData}
                       onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
                     />
@@ -276,6 +282,7 @@ export default function App() {
                       mapelList={mapelList}
                       jadwalList={jadwalList}
                       currentUser={currentUser}
+                      absensiSiswaList={absensiSiswaList}
                       onRefresh={handleRefreshData}
                     />
                   )}
